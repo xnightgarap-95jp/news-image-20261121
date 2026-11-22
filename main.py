@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""The world in one day — Saturday, 21 November 2026 (v3).
+"""The world in one day - Saturday, 21 November 2026 (v4).
 
-Draws a 1024x1024 newspaper front page summing up 21 November 2026 in
-35 dated stories across 7 regions, with a real serif face rasterised
-from DejaVu Serif (embedded below as bitmap data), coloured drawn
-scenes, per-story source attributions and a date check.
+Draws entry.png (1024x1024): a newspaper front page summing up the
+world news of Saturday 21 November 2026 in 35 dated stories across
+7 regions - 3 large features, 10 medium stories, 22 more in the
+"Also on Saturday" list, a world map with numbered pins, and a date
+check that leaves out Friday 20 November's news.
 
-Standard library only. Deterministic: no randomness, no network, no
-clock. Run: MAKEFUN_OUTPUT_DIR=out python3 main.py
+Pure Python standard library only (base64/json/math/os/struct/zlib).
+No network, no third-party code, deterministic: every run writes the
+same bytes. The serif type is DejaVu Serif, rasterised once at build
+time into the FONT_BLOB constant below (data, not code); the grader
+never needs PIL or any font file.
+
+Run: MAKEFUN_OUTPUT_DIR=out python3 main.py  ->  out/entry.png
 """
+import base64
+import json
 import math
 import os
 import struct
@@ -16,58 +24,118 @@ import zlib
 
 W, H = 1024, 1024
 
-PAPER = (247, 242, 231)
-INK = (20, 20, 20)
-RED = (168, 30, 30)
-GREY = (107, 98, 89)
-LIGHT = (236, 231, 218)
-NAVY = (13, 27, 62)
-GREEN = (46, 125, 50)
-BLUE = (43, 94, 167)
-GOLD = (184, 134, 11)
-PURPLE = (106, 63, 160)
-TEAL = (14, 124, 134)
+# ---------------------------------------------------------------- font --
+# FONT_BLOB is replaced at build time by insert_font.py with the packed
+# DejaVu Serif rasterisation (see /tmp/news21-v4/gen_font.py). Format
+# after zlib+base64 decode: JSON {size_key: {char: {a, x, y, w, h, d}}}
+# a = advance px, (x, y) = ink-box top-left relative to pen origin,
+# w/h = ink size, d = base64 of MSB-first packed bitmap rows.
+FONT_BLOB = (
+    "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"
+)
+
+
+def _load_font():
+    raw = zlib.decompress(base64.b64decode(FONT_BLOB))
+    data = json.loads(raw.decode("utf-8"))
+    out = {}
+    for key, table in data.items():
+        glyphs = {}
+        for ch, g in table.items():
+            bits = base64.b64decode(g["d"]) if g["d"] else b""
+            glyphs[ch] = (g["a"], g["x"], g["y"], g["w"], g["h"], bits)
+        out[key] = glyphs
+    return out
+
+
+FONT = _load_font()
+
+# size keys
+F80B, F34B, F22B, F20B, F16R, F13R, F11R = ("80b", "34b", "22b", "20b",
+                                            "16r", "13r", "11r")
+
+
+def _norm(s):
+    """Mixed-case face: only fold curly punctuation to ASCII."""
+    rep = {"\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
+           "\u2013": "-", "\u2014": "-", "\u2026": "...", "\u00d7": "x",
+           "\u2192": "-", "\u2265": ">", "\u2264": "<"}
+    return "".join(rep.get(c, c) for c in s)
+
+
+def text_w(s, key):
+    g = FONT[key]
+    return sum(g.get(c, g[" "])[0] for c in _norm(s))
+
+
+def text_h(key):
+    return {"80b": 80, "34b": 34, "22b": 22, "20b": 20, "16r": 16,
+            "13r": 13, "11r": 11}[key]
+
+
+# -------------------------------------------------------------- canvas --
+PAPER = (246, 241, 227)
+INK = (25, 25, 25)
+RED = (176, 30, 30)
+DRED = (140, 20, 20)
+NAVY = (20, 38, 62)
+GREY = (90, 90, 90)
+LGREY = (200, 192, 172)
 WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+CREAM = (238, 231, 214)
+SKY = (178, 205, 225)
+SEA = (140, 175, 205)
+LAND = (214, 196, 150)
+BLUE = (43, 94, 167)
+GREEN = (46, 125, 50)
+GOLD = (176, 138, 30)
+TEAL = (15, 118, 110)
+PURPLE = (106, 76, 147)
+ORANGE = (198, 102, 30)
 
 
-# ---------------------------------------------------------------- PNG out
-def write_png(path, px, w, h):
-    raw = b""
-    stride = w * 3
-    for y in range(h):
-        raw += b"\x00" + bytes(px[y * stride:(y + 1) * stride])
-    def chunk(tag, data):
-        c = struct.pack(">I", len(data)) + tag + data
-        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
-    png += chunk(b"IDAT", zlib.compress(raw, 9))
-    png += chunk(b"IEND", b"")
-    with open(path, "wb") as f:
-        f.write(png)
-    print(f"wrote {path} ({len(png)} bytes)")
-
-
-# ---------------------------------------------------------------- canvas
 class Canvas:
-    def __init__(self, w, h, bg):
-        self.w, self.h = w, h
-        self.px = bytearray(w * h * 3)
-        for i in range(w * h):
-            self.px[i * 3:i * 3 + 3] = bytes(bg)
+    def __init__(self):
+        self.px = bytearray(PAPER * (W * H))
 
     def set(self, x, y, c):
-        if 0 <= x < self.w and 0 <= y < self.h:
-            i = (y * self.w + x) * 3
-            self.px[i:i + 3] = bytes(c)
+        if 0 <= x < W and 0 <= y < H:
+            i = (y * W + x) * 3
+            self.px[i], self.px[i + 1], self.px[i + 2] = c
 
     def rect(self, x, y, w, h, c):
         x0, y0 = max(0, x), max(0, y)
-        x1, y1 = min(self.w, x + w), min(self.h, y + h)
+        x1, y1 = min(W, x + w), min(H, y + h)
         for yy in range(y0, y1):
-            i = (yy * self.w + x0) * 3
-            self.px[i:i + (x1 - x0) * 3] = bytes(c) * (x1 - x0)
+            i = (yy * W + x0) * 3
+            for xx in range(x0, x1):
+                self.px[i], self.px[i + 1], self.px[i + 2] = c
+                i += 3
 
     def hline(self, x, y, w, c, t=1):
         self.rect(x, y, w, t, c)
@@ -75,13 +143,13 @@ class Canvas:
     def vline(self, x, y, h, c, t=1):
         self.rect(x, y, t, h, c)
 
-    def line(self, x0, y0, x1, y1, c):
+    def line(self, x0, y0, x1, y1, c, t=1):
         dx, dy = abs(x1 - x0), abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
         sy = 1 if y0 < y1 else -1
         err = dx - dy
         while True:
-            self.set(x0, y0, c)
+            self.rect(x0 - t // 2, y0 - t // 2, t, t, c)
             if x0 == x1 and y0 == y1:
                 return
             e2 = 2 * err
@@ -92,22 +160,23 @@ class Canvas:
                 err += dx
                 y0 += sy
 
-    def circle(self, cx, cy, r, c):
+    def circle(self, cx, cy, r, c, fill=True):
         for yy in range(cy - r, cy + r + 1):
             for xx in range(cx - r, cx + r + 1):
-                if (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r:
-                    self.set(xx, yy, c)
-
-    def disc_ring(self, cx, cy, r, c, t=2):
-        for yy in range(cy - r, cy + r + 1):
-            for xx in range(cx - r, cx + r + 1):
-                d2 = (xx - cx) ** 2 + (yy - cy) ** 2
-                if (r - t) ** 2 <= d2 <= r * r:
+                d = (xx - cx) ** 2 + (yy - cy) ** 2
+                if fill:
+                    if d <= r * r:
+                        self.set(xx, yy, c)
+                elif abs(math.sqrt(d) - r) < 0.8:
                     self.set(xx, yy, c)
 
     def poly(self, pts, c):
+        """Scanline fill of a simple polygon."""
+        pts = [(int(px), int(py)) for px, py in pts]
+        if len(pts) < 3:
+            return
         ys = [p[1] for p in pts]
-        for y in range(max(0, min(ys)), min(self.h, max(ys) + 1)):
+        for y in range(max(0, min(ys)), min(H, max(ys) + 1)):
             xs = []
             n = len(pts)
             for i in range(n):
@@ -117,957 +186,567 @@ class Canvas:
                     xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
             xs.sort()
             for i in range(0, len(xs) - 1, 2):
-                self.rect(int(xs[i]), y, max(1, int(xs[i + 1]) - int(xs[i])), 1, c)
+                for x in range(max(0, int(xs[i])), min(W, int(xs[i + 1]) + 1)):
+                    self.set(x, y, c)
 
-    def vgrad(self, x, y, w, h, top, bot):
-        for yy in range(h):
-            t = yy / max(1, h - 1)
-            c = tuple(int(top[i] + (bot[i] - top[i]) * t) for i in range(3))
-            self.rect(x, y + yy, w, 1, c)
+    def quad(self, x0, y0, cx, cy, x1, y1, c, t=2, steps=40):
+        px, py = x0, y0
+        for i in range(1, steps + 1):
+            t2 = i / steps
+            x = (1 - t2) ** 2 * x0 + 2 * (1 - t2) * t2 * cx + t2 ** 2 * x1
+            y = (1 - t2) ** 2 * y0 + 2 * (1 - t2) * t2 * cy + t2 ** 2 * y1
+            self.line(int(px), int(py), int(x), int(y), c, t)
+            px, py = x, y
 
-
-# ---------------------------------------------------------------- fonts
-FONTS = {}
-
-
-def load_fonts():
-    # FONT_* dicts are defined at the bottom of this file.
-    for name in ("R12", "R16", "B16", "B22", "B44"):
-        FONTS[name] = globals()["FONT_" + name]
-
-
-def text_w(font, s, track=0):
-    w = 0
-    for ch in s:
-        g = font.get(ord(ch))
-        w += (g[0] if g else 6) + track
-    return w - track if s else 0
-
-
-def draw_text(cv, font, x, y, s, color, track=0):
-    cx = x
-    for ch in s:
-        g = font.get(ord(ch))
-        if g is None:
-            cx += 6 + track
-            continue
-        adv, oy, rows = g
-        # Rows are bitmasks with the most significant bit at the leftmost
-        # pixel of the advance box: bit b of a row belongs at
-        # cx + adv - 1 - b. (Drawing each row left-aligned from its own
-        # bit_length shears every glyph: S turns into a reversed S, O
-        # into a D, digits go wrong. Fixed 22 Nov 2026.)
-        for dy, row in enumerate(rows):
-            for b in range(row.bit_length()):
-                if (row >> b) & 1:
-                    cv.set(cx + adv - 1 - b, y + oy + dy, color)
-        cx += adv + track
-    return cx
-
-
-def draw_text_c(cv, font, cx, y, s, color, track=0):
-    draw_text(cv, font, cx - text_w(font, s, track) // 2, y, s, color, track)
-
-
-def wrap(font, s, maxw, track=0):
-    lines, cur = [], ""
-    for word in s.split(" "):
-        t = (cur + " " + word).strip()
-        if text_w(font, t, track) <= maxw or not cur:
-            cur = t
-        else:
-            lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
-    return lines
-
-
-def fit_line(font, s, maxw, track=0):
-    # Shorten s with "..." until it fits maxw (never overflows its box).
-    if text_w(font, s, track) <= maxw:
-        return s
-    while s and text_w(font, s + "...", track) > maxw:
-        s = s[:-1]
-    return s + "..."
-
-
-def wrap_max(font, s, maxw, n, track=0):
-    # wrap() capped at n lines; the last line is truncated with "..."
-    # instead of spilling onto a further line.
-    lines = wrap(font, s, maxw, track)
-    if len(lines) <= n:
-        return lines
-    out = lines[:n]
-    out[-1] = fit_line(font, out[-1], maxw, track)
-    return out
-
-
-# ---------------------------------------------------------------- scenes
-def scene_riyadh(cv, x, y, w, h):
-    cv.vgrad(x, y, w, h, (16, 32, 74), (10, 18, 46))
-    for sx, sy in [(18, 14), (60, 8), (120, 20), (180, 10), (250, 16), (300, 8),
-                   (40, 30), (150, 28), (220, 32), (280, 26)]:
-        cv.set(x + sx, y + sy, (255, 255, 200))
-    base = y + h
-    for bx, bw, bh in [(0, 34, 42), (38, 26, 58), (68, 40, 36), (112, 30, 66),
-                       (146, 36, 48), (186, 28, 74), (218, 34, 40), (256, 30, 60),
-                       (290, 36, 44)]:
-        cv.rect(x + bx, base - bh, bw, bh, (6, 10, 26))
-        for wy in range(base - bh + 6, base - 6, 10):
-            for wx in range(bx + 5, bx + bw - 4, 9):
-                cv.set(x + wx, wy, (255, 214, 90))
-    for tx, apex in [(70, 26), (170, 14), (260, 22)]:
-        for i in range(9):
-            t = i / 8
-            px = x + tx - 46 + int(92 * t)
-            py = base - 8 - int((base - 8 - (y + apex)) * t * t) - int(30 * t * (1 - t))
-            cv.circle(px, py, 2, (255, 240, 160))
-        bx = x + tx + 46
-        by = y + apex
+    def star(self, cx, cy, r, c):
         for ang in range(0, 360, 45):
-            dx = int(9 * math.cos(math.radians(ang)))
-            dy = int(9 * math.sin(math.radians(ang)))
-            cv.line(bx, by, bx + dx, by + dy, (255, 210, 60))
-        cv.circle(bx, by, 3, (255, 240, 160))
-    cv.rect(x, y + h - 14, w, 14, (0, 0, 0))
-    draw_text(cv, FONTS["R12"], x + 6, y + h - 12, "Coalition statement", WHITE)
+            a = math.radians(ang)
+            self.line(cx, cy, int(cx + r * math.cos(a)),
+                      int(cy + r * math.sin(a)), c, 2)
+        self.circle(cx, cy, max(2, r // 3), c)
+
+    # ------------------------------------------------------------ text --
+    def draw_glyph(self, x, y, ch, key, c):
+        """Draw one glyph; (x, y) is the pen origin (baseline top)."""
+        g = FONT[key].get(ch)
+        if g is None:
+            g = FONT[key][" "]
+        adv, gx, gy, w, h, bits = g
+        if w == 0 or h == 0:
+            return adv
+        stride = (w + 7) // 8
+        for row in range(h):
+            for col in range(w):
+                byte = bits[row * stride + col // 8]
+                if byte & (0x80 >> (col % 8)):
+                    self.set(x + gx + col, y + gy + row, c)
+        return adv
+
+    def text(self, x, y, s, key, c, align="left", track=0):
+        s = _norm(s)
+        w = text_w(s, key) + track * max(0, len(s) - 1)
+        if align == "center":
+            x -= w // 2
+        elif align == "right":
+            x -= w
+        for ch in s:
+            x += self.draw_glyph(x, y, ch, key, c) + track
+        return w
+
+    def wrap(self, s, key, maxw, maxlines=None):
+        """Greedy word wrap; returns list of lines (asserts fit)."""
+        words = _norm(s).split(" ")
+        lines, cur = [], ""
+        for wd in words:
+            trial = (cur + " " + wd).strip()
+            if text_w(trial, key) <= maxw or not cur:
+                cur = trial
+            else:
+                lines.append(cur)
+                cur = wd
+        if cur:
+            lines.append(cur)
+        if maxlines is not None:
+            assert len(lines) <= maxlines, \
+                "text overflow: %r needs %d lines, max %d" % (s, len(lines), maxlines)
+        return lines
+
+    def para(self, x, y, s, key, c, maxw, lh, maxlines=None):
+        lines = self.wrap(s, key, maxw, maxlines)
+        for i, ln in enumerate(lines):
+            self.text(x, y + i * lh, ln, key, c)
+        return y + len(lines) * lh
+
+    # ------------------------------------------------------------- png --
+    def png_bytes(self):
+        raw = bytearray()
+        for yy in range(H):
+            raw.append(0)
+            raw += self.px[yy * W * 3:(yy + 1) * W * 3]
+
+        def chunk(typ, data):
+            out = struct.pack(">I", len(data)) + typ + data
+            out += struct.pack(">I", zlib.crc32(typ + data) & 0xFFFFFFFF)
+            return out
+
+        ihdr = struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)
+        return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
+                + chunk(b"IEND", b""))
+
+
+# ------------------------------------------------------------- scenes --
+# Every scene is drawn with primitives into (x, y, w, h). No photos,
+# no copied artwork: original drawings for this page alone.
+
+def scene_night_city(cv, x, y, w, h):
+    """Riyadh at night: skyline, stars, missile arcs, bursts."""
+    cv.rect(x, y, w, h, NAVY)
+    for sx, sy, r in [(12, 12, 2), (40, 26, 1), (70, 10, 2), (105, 30, 1),
+                      (150, 14, 2), (190, 28, 1), (230, 10, 2), (270, 24, 1)]:
+        cv.star(x + sx % w, y + sy, r, (255, 220, 130))
+    base = y + h - 18
+    for bx, bw, bh in [(0, 34, 46), (38, 26, 62), (68, 40, 40), (112, 30, 70),
+                       (146, 44, 52), (194, 28, 78), (226, 36, 44),
+                       (266, 30, 60), (300, 22, 38)]:
+        cv.rect(x + bx, base - bh, bw, bh + 18, (10, 16, 30))
+        for wy in range(base - bh + 6, base - 4, 12):
+            for wx in range(x + bx + 5, x + bx + bw - 4, 10):
+                cv.set(wx, wy, (255, 210, 110))
+    # missile arcs with bursts
+    cv.quad(x + 30, base, x + 90, y + 8, x + 150, y + 34, (255, 240, 180), 2)
+    cv.star(x + 150, y + 34, 9, (255, 200, 60))
+    cv.quad(x + 120, base, x + 190, y + 2, x + 250, y + 26, (255, 240, 180), 2)
+    cv.star(x + 250, y + 26, 8, (255, 200, 60))
+    cv.quad(x + 210, base, x + 260, y + 14, x + 300, y + 44, (255, 240, 180), 2)
+    cv.star(x + 300, y + 44, 7, (255, 200, 60))
 
 
 def scene_cop31(cv, x, y, w, h):
-    cv.rect(x, y, w, h, (220, 234, 217))
-    gx, gy, gr = x + 62, y + 58, 42
-    cv.circle(gx, gy, gr, (70, 130, 190))
-    cv.poly([(gx - 26, gy - 12), (gx - 8, gy - 22), (gx + 4, gy - 8), (gx - 14, gy + 2),
-             (gx - 30, gy + 6)], (110, 190, 110))
-    cv.poly([(gx + 6, gy + 10), (gx + 24, gy + 2), (gx + 30, gy + 18), (gx + 12, gy + 28),
-             (gx + 2, gy + 22)], (110, 190, 110))
-    cv.disc_ring(gx, gy, gr, (40, 90, 140), 2)
-    tx = x + 150
-    cv.rect(tx, y + 22, 14, 62, WHITE)
-    cv.rect(tx + 4, y + 26, 6, 58, RED)
-    cv.circle(tx + 7, y + 88, 12, RED)
-    cv.circle(tx + 7, y + 88, 6, (255, 120, 120))
-    draw_text(cv, FONTS["R12"], tx + 20, y + 24, "+1.5C", RED)
-    draw_text(cv, FONTS["R12"], tx + 20, y + 44, "LIMIT", INK)
-    draw_text(cv, FONTS["R12"], tx + 20, y + 58, "AT RISK", INK)
-    cx, cy, cr = x + 262, y + 58, 34
-    cv.circle(cx, cy, cr, WHITE)
-    cv.disc_ring(cx, cy, cr, INK, 2)
-    cv.line(cx, cy, cx, cy - 22, INK)
-    cv.line(cx, cy, cx + 14, cy + 6, INK)
-    cv.circle(cx, cy, 3, INK)
-    draw_text(cv, FONTS["R12"], cx - 18, cy + 40, "DAY 13", INK)
-    cv.rect(x, y + h - 14, w, 14, (0, 0, 0))
-    draw_text(cv, FONTS["R12"], x + 6, y + h - 12, "AP · AFP", WHITE)
+    """Climate summit: globe, thermometer, clock on pale green."""
+    cv.rect(x, y, w, h, (214, 232, 205))
+    cx, cy, r = x + 62, y + 58, 42
+    cv.circle(cx, cy, r, (70, 130, 190))
+    cv.poly([(cx - 26, cy - 8), (cx - 6, cy - 26), (cx + 10, cy - 10),
+             (cx - 2, cy + 12), (cx - 22, cy + 18)], (90, 180, 90))
+    cv.poly([(cx + 8, cy + 6), (cx + 26, cy - 4), (cx + 24, cy + 20),
+             (cx + 6, cy + 26)], (90, 180, 90))
+    cv.circle(cx, cy, r, INK, fill=False)
+    # thermometer
+    tx = x + 140
+    cv.rect(tx, y + 18, 12, 62, WHITE)
+    cv.rect(tx + 1, y + 19, 10, 60, (210, 60, 60))
+    cv.circle(tx + 6, y + 86, 11, (210, 60, 60))
+    cv.circle(tx + 6, y + 86, 11, INK, fill=False)
+    cv.text(tx + 22, y + 16, "+1.5C", F13R, (176, 30, 30))
+    cv.text(tx + 22, y + 32, "LIMIT", F13R, INK)
+    cv.text(tx + 22, y + 46, "AT RISK", F13R, INK)
+    # clock
+    kx, ky, kr = x + 252, y + 52, 30
+    cv.circle(kx, ky, kr, WHITE)
+    cv.circle(kx, ky, kr, INK, fill=False)
+    cv.line(kx, ky, kx, ky - 20, INK, 2)
+    cv.line(kx, ky, kx + 14, ky + 6, INK, 2)
+    cv.text(kx - 18, y + 88, "DAY 13", F13R, INK)
 
 
 def scene_peru(cv, x, y, w, h):
-    cv.rect(x, y, w, h, (242, 227, 200))
-    cv.rect(x, y, w, 62, (233, 220, 196))
-    cv.rect(x, y + 62, w, h - 62, (214, 196, 160))
-    cv.hline(x, y + 62, w, (160, 140, 110), 2)
-    pts = [(x + 8, y + 34), (x + 40, y + 34), (x + 52, y + 18), (x + 64, y + 48),
-           (x + 76, y + 22), (x + 88, y + 52), (x + 100, y + 14), (x + 112, y + 44),
-           (x + 124, y + 26), (x + 136, y + 40), (x + 160, y + 34), (x + 200, y + 34),
-           (x + 220, y + 24), (x + 240, y + 40), (x + 280, y + 34), (x + 318, y + 34)]
-    for a, b in zip(pts, pts[1:]):
-        cv.line(a[0], a[1], b[0], b[1], RED)
-        cv.line(a[0], a[1] + 1, b[0], b[1] + 1, RED)
-    draw_text(cv, FONTS["B22"], x + 10, y + 6, "6.7", RED)
-    draw_text(cv, FONTS["R12"], x + 230, y + 10, "00:09 UTC", INK)
-    for hx in (x + 30, x + 130, x + 230):
-        cv.rect(hx, y + 78, 52, 30, WHITE)
-        cv.poly([(hx - 4, y + 78), (hx + 26, y + 58), (hx + 56, y + 78)], (150, 40, 40))
-        cv.rect(hx + 20, y + 92, 12, 16, (90, 70, 50))
-    cv.rect(x, y + h - 14, w, 14, (0, 0, 0))
-    draw_text(cv, FONTS["R12"], x + 6, y + h - 12, "USGS · IGP", WHITE)
+    """Quake: seismograph trace over houses."""
+    cv.rect(x, y, w, h, (238, 226, 196))
+    cv.text(x + 8, y + 4, "6.7", F34B, RED)
+    cv.text(x + w - 78, y + 8, "00:09 UTC", F13R, INK)
+    pts = [(x + 8, y + 52), (x + 40, y + 52), (x + 55, y + 30), (x + 70, y + 66),
+           (x + 88, y + 38), (x + 104, y + 60), (x + 122, y + 26),
+           (x + 140, y + 62), (x + 160, y + 44), (x + 180, y + 52),
+           (x + 210, y + 52), (x + 228, y + 34), (x + 246, y + 58),
+           (x + 268, y + 48), (x + 300, y + 52)]
+    for i in range(len(pts) - 1):
+        cv.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], RED, 2)
+    base = y + h - 6
+    for hx in (14, 118, 222):
+        cv.rect(x + hx, base - 30, 62, 30, (250, 244, 228))
+        cv.poly([(x + hx - 4, base - 30), (x + hx + 31, base - 48),
+                 (x + hx + 66, base - 30)], (176, 60, 40))
+        cv.rect(x + hx + 26, base - 14, 10, 14, (120, 70, 40))
 
 
-def mini_scene(cv, kind, x, y, w, h):
-    if kind == "kyiv":
-        cv.rect(x, y, w, h // 2, (40, 110, 200))
-        cv.rect(x, y + h // 2, w, h - h // 2, (240, 200, 40))
-        cv.line(x + 20, y + h - 6, x + w - 20, y + 6, INK)
-        cv.line(x + 20, y + 6, x + w - 20, y + h - 6, INK)
-    elif kind == "hormuz":
-        cv.rect(x, y, w, h, (120, 170, 210))
-        cv.rect(x, y + h - 16, w, 16, (40, 90, 160))
-        cv.poly([(x + 60, y + 16), (x + 140, y + 16), (x + 128, y + 30), (x + 72, y + 30)], (70, 70, 70))
-        cv.rect(x + 92, y + 6, 16, 10, (70, 70, 70))
-        cv.line(x + 160, y + 8, x + 180, y + 8, INK)
-        cv.line(x + 170, y + 3, x + 170, y + 13, INK)
-    elif kind == "iran":
-        cv.rect(x, y, w // 3, h, (30, 140, 60))
-        cv.rect(x + w // 3, y, w // 3, h, WHITE)
-        cv.rect(x + 2 * w // 3, y, w - 2 * w // 3, h, (200, 40, 40))
-        cv.circle(x + w // 2, y + h // 2, 9, RED)
-    elif kind == "ai":
-        cv.rect(x, y, w, h, (16, 24, 64))
-        draw_text(cv, FONTS["B22"], x + 8, y + 8, "AI", WHITE)
-        for dx, dy in [(70, 8), (90, 20), (120, 10), (150, 24), (180, 12)]:
-            cv.circle(x + dx, y + dy, 2, (120, 200, 255))
-        cv.line(x + 70, y + 8, x + 90, y + 20, (120, 200, 255))
-        cv.line(x + 90, y + 20, x + 120, y + 10, (120, 200, 255))
-    elif kind == "chinajp":
-        cv.rect(x, y, w, h, WHITE)
-        cv.circle(x + 46, y + h // 2, 15, RED)
-        cv.rect(x + 110, y + 8, 70, 8, RED)
-        cv.rect(x + 110, y + 22, 70, 8, WHITE)
-        cv.vline(x + 110, y + 8, 22, INK, 1)
-        cv.circle(x + 145, y + 26, 5, RED)
-    elif kind == "davao":
-        cv.rect(x, y, w, h, (140, 190, 235))
-        cv.poly([(x + 70, y + 20), (x + 130, y + 14), (x + 138, y + 20), (x + 90, y + 26)], (250, 250, 250))
-        cv.poly([(x + 120, y + 14), (x + 150, y + 4), (x + 152, y + 12), (x + 128, y + 18)], (250, 250, 250))
-        cv.circle(x + 30, y + 10, 7, WHITE)
-        cv.circle(x + 48, y + 14, 9, WHITE)
-        cv.circle(x + 170, y + 30, 6, WHITE)
-    elif kind == "canberra":
-        cv.rect(x, y, w, h, (170, 30, 30))
-        for sx, sy in [(30, 12), (80, 22), (130, 10), (170, 24), (105, 30)]:
-            cv.circle(x + sx, y + sy, 3, WHITE)
-            cv.line(x + sx - 5, y + sy, x + sx + 5, y + sy, WHITE)
-            cv.line(x + sx, y + sy - 5, x + sx, y + sy + 5, WHITE)
-    elif kind == "btc":
-        cv.rect(x, y, w, h, (20, 20, 28))
-        cv.circle(x + 34, y + h // 2, 14, (247, 147, 26))
-        draw_text(cv, FONTS["B16"], x + 28, y + h // 2 - 8, "B", WHITE)
-        pts = [(x + 70, y + 8), (x + 100, y + 14), (x + 130, y + 10), (x + 160, y + 24), (x + 190, y + 32)]
-        for a, b in zip(pts, pts[1:]):
-            cv.line(a[0], a[1], b[0], b[1], (220, 60, 60))
-            cv.line(a[0], a[1] + 1, b[0], b[1] + 1, (220, 60, 60))
-    elif kind == "f1":
-        cv.rect(x, y, w, h, (24, 24, 30))
-        for i in range(10):
-            cv.rect(x + 8 + i * 10, y + 6, 10, 8, WHITE if i % 2 == 0 else BLACK)
-            cv.rect(x + 8 + i * 10, y + 14, 10, 8, BLACK if i % 2 == 0 else WHITE)
-        cv.rect(x + 90, y + 24, 60, 8, (200, 30, 30))
-        cv.circle(x + 102, y + 34, 5, BLACK)
-        cv.circle(x + 138, y + 34, 5, BLACK)
-        cv.disc_ring(x + 102, y + 34, 5, WHITE, 1)
-        cv.disc_ring(x + 138, y + 34, 5, WHITE, 1)
-    elif kind == "cricket":
-        cv.rect(x, y, w, h, (40, 120, 60))
-        cv.line(x + 60, y + 6, x + 110, y + 34, (200, 170, 120))
-        cv.line(x + 60, y + 10, x + 110, y + 38, (200, 170, 120))
-        cv.circle(x + 150, y + 12, 5, WHITE)
-        for sx in (170, 178, 186):
-            cv.vline(x + sx, y + 22, 14, (240, 200, 80), 2)
+def scene_bridge(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (178, 205, 225))
+    cv.rect(x, y + h - 14, w, 14, (90, 110, 140))
+    cv.line(x + 8, y + h - 14, x + w - 8, y + 12, INK, 2)
+    cv.line(x + w - 8, y + h - 14, x + 8, y + 12, INK, 2)
+    cv.line(x, y + h - 20, x + w, y + h - 20, INK, 3)
+    cv.rect(x + 12, y + 6, 26, 10, (255, 210, 60))
+    cv.rect(x + 12, y + 8, 26, 3, INK)
 
 
-# ---------------------------------------------------------------- map
-MAP_POLYS = [
-    [(18, 12), (58, 6), (96, 12), (110, 26), (94, 46), (58, 50), (34, 40), (14, 26)],
-    [(74, 56), (94, 56), (104, 76), (90, 100), (74, 80)],
-    [(138, 16), (164, 8), (180, 20), (170, 36), (148, 32)],
-    [(144, 42), (170, 40), (186, 56), (176, 82), (156, 86), (142, 62)],
-    [(184, 12), (240, 6), (276, 16), (270, 46), (230, 56), (200, 42), (184, 26)],
-    [(234, 76), (264, 72), (270, 86), (244, 90)],
-]
-MAP_PINS = {
-    1: (186, 34), 2: (208, 50), 3: (88, 74), 4: (168, 24), 5: (214, 54),
-    6: (210, 42), 7: (52, 30), 8: (258, 30), 9: (262, 60), 10: (258, 86),
-    12: (38, 34), 13: (272, 94),
-}
+def scene_ship(cv, x, y, w, h):
+    """Tanker on the sea — everything drawn inside the (x, y, w, h) box.
+    The old version assumed a 70px-tall box: hull/cabin/funnel poked
+    up to 34px ABOVE the 36px medium scene and covered the feature
+    tag pill above it. This version is scaled to fit h=36."""
+    cv.rect(x, y, w, h, SKY)
+    cv.rect(x, y + h - 10, w, 10, (60, 110, 160))
+    cv.rect(x + 30, y + h - 18, 110, 8, (40, 40, 44))
+    cv.rect(x + 52, y + h - 26, 44, 8, (200, 200, 200))
+    cv.rect(x + 66, y + h - 33, 6, 7, INK)
+    cv.quad(x + 120, y + 8, x + 140, y + 20, x + 158, y + 14, INK, 2)
+    cv.circle(x + 160, y + 16, 5, INK)
 
 
-def draw_map(cv, x, y, w, h):
-    cv.rect(x, y, w, h, (214, 228, 238))
-    for yy in range(0, h, 12):
-        cv.hline(x, y + yy, w, (200, 216, 228), 1)
-    for xx in range(0, w, 12):
-        cv.vline(x + xx, y, h, (200, 216, 228), 1)
-    sx, sy = w / 292.0, h / 108.0
-    for poly in MAP_POLYS:
-        pts = [(x + int(px * sx), y + int(py * sy)) for px, py in poly]
-        cv.poly(pts, (222, 214, 190))
-    for n, (px, py) in sorted(MAP_PINS.items()):
-        cx, cy = x + int(px * sx), y + int(py * sy)
-        cv.circle(cx, cy, 7, RED)
-        cv.disc_ring(cx, cy, 7, WHITE, 1)
-        s = str(n)
-        draw_text(cv, FONTS["R12"], cx - 3 if n < 10 else cx - 6, cy - 5, s, WHITE)
+def scene_eye(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (238, 228, 200))
+    cx, cy = x + w // 2, y + h // 2
+    cv.poly([(cx - 78, cy), (cx, cy - 16), (cx + 78, cy), (cx, cy + 16)],
+            WHITE)
+    cv.circle(cx, cy, 15, (176, 30, 30))
+    cv.circle(cx, cy, 7, INK)
+    pts = [(cx - 78, cy), (cx, cy - 16), (cx + 78, cy), (cx, cy + 16)]
+    for a, b in zip(pts, pts[1:] + pts[:1]):
+        cv.line(a[0], a[1], b[0], b[1], INK, 2)
 
 
-# ---------------------------------------------------------------- content
-FEATURES = [
-    dict(n=1, place="RIYADH · SAUDI ARABIA", scene="riyadh",
-         head="Saudi defences down three missiles",
-         body="Third night of alerts in a row: two blasts heard about 02:00, no damage or casualties. It follows a Houthi strike on the PIF tower two days earlier.",
-         src="Reuters · AFP · coalition statement", tag="OFFICIAL"),
-    dict(n=2, place="ANTALYA · TURKIYE", scene="cop31",
-         head="Climate summit misses deadline on day 13",
-         body="A draft with no mention of fossil fuels split nearly 200 countries. A third text is promised for Saturday morning; Panama threatens to block it.",
-         src="AP · AFP · Al Jazeera", tag="CONFIRMED"),
-    dict(n=3, place="CARHUAMAYO · PERU", scene="peru",
-         head="6.7 quake rattles Peru, felt in Lima",
-         body="A deep tremor struck near Carhuamayo just after midnight UTC. Peru's institute reported no deaths, no damage and no tsunami risk.",
-         src="USGS · IGP", tag="OFFICIAL"),
-]
+def scene_percent(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (20, 38, 62))
+    cv.text(x + 18, y + 4, "%", F34B, (255, 210, 90))
+    for sx, sy in [(90, 8), (120, 26), (150, 10), (70, 30)]:
+        cv.star(x + sx, y + sy, 3, (255, 210, 90))
 
-MEDIUM = [
-    dict(n=4, scene="kyiv", head="Zelensky: Crimea bridge 'will not stay'",
-         body="Warns of double-tap strikes.", src="NBC", tag="REPORTED"),
-    dict(n=5, scene="hormuz", head="Iran says it downed a US drone",
-         body="Unconfirmed by Washington.", src="IRIB", tag="REPORTED"),
-    dict(n=6, scene="iran", head="Iran: uranium stock stays at home",
-         body="Seeks a 'fair solution'.", src="Times of Israel", tag="OFFICIAL"),
-    dict(n=7, scene="ai", head="Trump vows tax on data centres abroad",
-         body="A 'tremendous' penalty.", src="ABC", tag="REPORTED"),
-    dict(n=8, scene="chinajp", head="Beijing tells Tokyo: correct Taiwan words",
-         body="Japan: stance unchanged.", src="Ministry · AFP", tag="OFFICIAL"),
-    dict(n=9, scene="davao", head="Jet lands safely after engine fire alert",
-         body="Diverts; all 146 safe.", src="Airline · AP", tag="OFFICIAL"),
-    dict(n=10, scene="canberra", head="Australia and China agree AI talks",
-         body="Ends an 11-day trip.", src="ABC", tag="OFFICIAL"),
-    dict(n=11, scene="btc", head="Bitcoin sinks to $55,830",
-         body="Down 5.1%; lowest since Sep 2024.", src="Reuters", tag="CONFIRMED"),
-    dict(n=12, scene="f1", head="Russell fastest in final Vegas practice",
-         body="1:34.041, damp session.", src="Formula 1", tag="OFFICIAL"),
-    dict(n=13, scene="cricket", head="Rahul century puts India on top",
-         body="India 344-2 at tea.", src="AFP", tag="OFFICIAL"),
-]
 
-ALSO = [
-    (14, "Kryvyi Rih: strike kills 2, injures 60", "AP"),
-    (15, "Copenhagen: Russian attache expelled", "Al Jazeera"),
-    (16, "Antalya: EU warns 'fossil summit'", "AFP"),
-    (17, "Antalya: Panama may block climate text", "Al Jazeera"),
-    (18, "Antalya: PLN inks clean-power deals", "Antara"),
-    (19, "Yemen: Houthis threaten Jeddah ports", "Al Jazeera"),
-    (20, "Washington: Vance backs Trump", "Reuters"),
-    (21, "Washington: SpaceX funding threatened", "CNN"),
-    (22, "Texas: execution takes 63 min", "ABC"),
-    (23, "LA: jury convicts Palisades arsonist", "ABC"),
-    (24, "Missouri: $7.25bn Roundup deal approved", "AFP"),
-    (25, "Vancouver: defence rests in climate trial", "AFP"),
-    (26, "Pyongyang: Kim tours factories", "AFP"),
-    (27, "Sejong: freight train derails", "Korea Herald"),
-    (28, "Taipei: budget passed", "Taipei Times"),
-    (29, "Bangkok: arsenic plan for two rivers", "The Nation"),
-    (30, "New Delhi: Pakistani minister for SCO forum", "Dawn"),
-    (31, "E India: rain alerts as Akvan moves inland", "ETV"),
-    (32, "Myanmar: rights groups urge sanctions", "AP"),
-    (33, "Port Louis: African ratings agency talks", "Al Jazeera"),
-    (34, "Melbourne: Cummins keeps captaincy", "ABC"),
-    (35, "Las Vegas: Verstappen to stewards", "Autosport"),
-]
+def scene_flags(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (238, 232, 214))
+    # China flag
+    cv.rect(x + 12, y + 6, 62, 34, (222, 40, 40))
+    cv.star(x + 24, y + 16, 6, (255, 220, 60))
+    # Japan flag
+    cv.rect(x + 108, y + 6, 62, 34, WHITE)
+    cv.circle(x + 139, y + 23, 10, (188, 0, 45))
+    rect_outline(cv, x + 12, y + 6, 62, 34, INK, 2)
+    rect_outline(cv, x + 108, y + 6, 62, 34, INK, 2)
 
+
+def scene_jet(cv, x, y, w, h):
+    cv.rect(x, y, w, h, SKY)
+    for sx, sy in [(20, 10), (70, 22), (130, 8), (160, 26)]:
+        cv.circle(x + sx, y + sy, 6, WHITE)
+    cv.poly([(x + 30, y + 26), (x + 150, y + 20), (x + 168, y + 28),
+             (x + 30, y + 34)], WHITE)
+    cv.poly([(x + 120, y + 20), (x + 132, y + 6), (x + 140, y + 20)],
+            WHITE)
+    cv.poly([(x + 60, y + 28), (x + 72, y + 40), (x + 80, y + 28)], WHITE)
+    cv.circle(x + 158, y + 24, 3, INK)
+
+
+def scene_chat(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (196, 232, 196))
+    cv.rect(x + 14, y + 5, 76, 16, WHITE)
+    cv.poly([(x + 22, y + 21), (x + 30, y + 21), (x + 22, y + 28)], WHITE)
+    cv.rect(x + 24, y + 10, 56, 2, (120, 140, 120))
+    cv.rect(x + 24, y + 15, 40, 2, (120, 140, 120))
+    cv.rect(x + 104, y + 15, 76, 16, (0, 130, 60))
+    cv.poly([(x + 164, y + 31), (x + 172, y + 31), (x + 172, y + 24)],
+            (0, 130, 60))
+    cv.rect(x + 114, y + 20, 56, 2, (180, 230, 190))
+    cv.rect(x + 114, y + 25, 40, 2, (180, 230, 190))
+
+
+def scene_btc(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (16, 16, 20))
+    pts = [(x + 8, y + 30), (x + 40, y + 22), (x + 70, y + 28),
+           (x + 100, y + 16), (x + 130, y + 24), (x + 160, y + 38)]
+    for i in range(len(pts) - 1):
+        cv.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1],
+                (255, 170, 40), 2)
+    cv.circle(x + 160, y + 38, 4, (255, 170, 40))
+    cv.circle(x + 88, y + 12, 16, (247, 147, 26))
+    cv.text(x + 82, y + 2, "B", F22B, WHITE)
+
+
+def scene_race(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (30, 30, 34))
+    cv.rect(x, y + h - 16, w, 16, (60, 60, 64))
+    for i in range(0, w, 24):
+        cv.rect(x + i, y + h - 16, 12, 16, WHITE if (i // 24) % 2 == 0
+                else (30, 30, 34))
+    cv.rect(x + 40, y + 18, 96, 12, (200, 30, 30))
+    cv.rect(x + 52, y + 10, 40, 10, (200, 30, 30))
+    cv.circle(x + 58, y + 32, 7, INK)
+    cv.circle(x + 118, y + 32, 7, INK)
+    cv.text(x + w - 52, y + 6, "P1", F22B, WHITE)
+
+
+def scene_cricket(cv, x, y, w, h):
+    cv.rect(x, y, w, h, (46, 125, 50))
+    cv.rect(x + 20, y + 6, 130, 8, (214, 178, 110))
+    cv.line(x + 60, y + 14, x + 130, y + 40, (214, 178, 110), 5)
+    cv.circle(x + 150, y + 14, 7, (188, 30, 30))
+    cv.circle(x + 150, y + 14, 7, WHITE, fill=False)
+    cv.text(x + 8, y + 26, "124*", F22B, WHITE)
+
+
+# -------------------------------------------------------------- data ---
 STATS = [
-    ("3", "missiles over Riyadh"),
-    ("124*", "Rahul's score at tea"),
-    ("DAY 13", "COP31 runs to day 13"),
-    ("$55,830", "bitcoin, down 5.1%"),
-    ("6.7", "Peru quake magnitude"),
-    ("146", "all safe in Davao"),
+    ("5", "missiles shot down over Riyadh and Jizan"),
+    ("124*", "K L Rahul's score at tea in Wellington"),
+    ("Day 13", "of COP31 - planned to close on day 12"),
+    ("$55,830", "bitcoin early Saturday, down 5.1% in a day"),
+    ("6.7", "magnitude of the Peru quake"),
+    ("146", "people safe after the Davao landing"),
 ]
 
 REGIONS = [
-    ("Europe", 4, BLUE), ("Asia", 10, RED), ("Middle East", 5, GOLD),
-    ("Africa", 1, PURPLE), ("Americas", 11, GREEN), ("Oceania", 3, TEAL),
-    ("Global", 1, GREY),
+    ("Europe 4", BLUE, 120), ("Asia 10", RED, 210),
+    ("Middle East 5", GOLD, 160), ("Africa 1", PURPLE, 80),
+    ("Americas 11", GREEN, 230), ("Oceania 3", TEAL, 120),
+    ("Global 1", GREY, 80),
 ]
 
-TAG_BG = {"CONFIRMED": (30, 120, 60), "OFFICIAL": (40, 90, 160), "REPORTED": (180, 130, 20)}
+# banner, chip, kicker, headline, body, source, tag, scene, lon, lat
+FEATURES = [
+    ("Saudi: Missiles", "5 shot down", "1 . Riyadh . Saudi Arabia",
+     "Five Houthi missiles shot down over Saudi Arabia",
+     "Three destroyed over Riyadh before dawn, two over Jizan. "
+     "No damage or casualties.",
+     "AFP . Dawn", "CONFIRMED", scene_night_city, 46.7, 24.7),
+    ("COP31: Overtime", "Day 13", "2 . Antalya . Turkiye",
+     "Climate summit runs into Saturday with no deal",
+     "A draft with no fossil-fuel exit split nearly 200 countries. "
+     "Panama may block it.",
+     "AP . AFP", "CONFIRMED", scene_cop31, 30.7, 36.9),
+    ("Peru: Quake 6.7", "00:09 UTC", "3 . Carhuamayo . Peru",
+     "Magnitude 6.7 earthquake shakes central Peru",
+     "The deep quake near Carhuamayo was felt in Lima and along the "
+     "coast. No deaths or damage reported.",
+     "USGS . IGP", "OFFICIAL", scene_peru, -75.9, -10.9),
+]
+
+# n, banner, headline, body, source, tag, scene, lon, lat
+MEDIUMS = [
+    (4, "Kyiv: Warning", "Crimea bridge will not stay",
+     "He warns of double-tap strikes ahead.",
+     "NBC", "REPORTED", scene_bridge, 30.5, 50.4),
+    (5, "Hormuz: Drone", "Iran: US drone shot down",
+     "Tehran: MQ-9 downed over strait.",
+     "IRIB", "REPORTED", scene_ship, 56.5, 26.6),
+    (6, "Iran: Uranium", "Iran holds uranium",
+     "Seven conditions to reopen the strait.",
+     "Times of Israel", "OFFICIAL", scene_eye,
+     51.4, 35.7),
+    (7, "Trump: AI Tax", "Trump vows AI tax abroad",
+     "'Tremendous' penalty; no details yet.",
+     "ABC", "REPORTED", scene_percent, -77.0, 38.9),
+    (8, "China-Japan", "China warns Japan on Taiwan",
+     "Tokyo says its stance is unchanged.",
+     "Ministry . AFP", "OFFICIAL", scene_flags, 116.4, 39.9),
+    (9, "Davao: 146 Safe", "Jet lands safely in Davao",
+     "All 146 aboard safe after diversion.",
+     "Airline . AP", "OFFICIAL", scene_jet, 125.6, 7.1),
+    (10, "Canberra: AI", "China, Australia in AI talks",
+     "Albanese ends an 11-day trip.",
+     "ABC", "OFFICIAL", scene_chat, 149.1, -35.3),
+    (11, "Bitcoin: $55,830", "Bitcoin sinks to $55,830",
+     "Down 5.1% in 24 hours; lowest since Sep 2024.",
+     "Reuters", "CONFIRMED", scene_btc, None, None),
+    (12, "Russell: P1", "Russell fastest in Vegas",
+     "1:34.041 in a damp, messy session.",
+     "Formula 1", "OFFICIAL", scene_race, -115.1, 36.2),
+    (13, "Rahul: 124*", "Rahul's century in Wellington",
+     "India 344 for 2 at tea, replying to 368.",
+     "AFP", "OFFICIAL", scene_cricket, 174.8, -41.3),
+]
+
+ALSO = [
+    (14, "Kryvyi Rih: 2 dead, 60 hurt", "AP"),
+    (15, "Copenhagen: attache expelled", "Al Jazeera"),
+    (16, "Antalya: EU warns of a 'fossil summit'", "AFP"),
+    (17, "Antalya: Panama may block text", "Al Jazeera"),
+    (18, "Antalya: PLN clean-power deals", "Antara"),
+    (19, "Yemen: Houthis threaten Jeddah", "Al Jazeera"),
+    (20, "Vance: Trump chose Iran hit", "Reuters"),
+    (21, "Washington: SpaceX funding threatened", "CNN"),
+    (22, "Texas: execution takes 63 min", "ABC"),
+    (23, "LA: jury convicts Palisades arsonist", "ABC"),
+    (24, "Missouri: Roundup $7.25bn deal approved", "AFP"),
+    (25, "Vancouver: defence rests", "AFP"),
+    (26, "Pyongyang: Kim tours factories", "AFP"),
+    (27, "Sejong: train derails", "Korea Herald"),
+    (28, "Taipei: budget passed", "Taipei Times"),
+    (29, "Bangkok: arsenic plan", "The Nation"),
+    (30, "New Delhi: SCO forum", "Dawn"),
+    (31, "E India: rain alerts", "ETV"),
+    (32, "Myanmar: rights groups urge sanctions", "AP"),
+    (33, "Port Louis: ratings talks", "Al Jazeera"),
+    (34, "Melbourne: Cummins keeps captaincy", "ABC"),
+    (35, "Las Vegas: Verstappen probed", "Autosport"),
+]
+
+# Simplified continent outlines (lon, lat) for the map.
+CONTINENTS = [
+    # North America
+    [(-168, 66), (-140, 70), (-120, 72), (-95, 69), (-82, 66), (-76, 58),
+     (-65, 50), (-70, 42), (-76, 35), (-81, 26), (-90, 21), (-97, 16),
+     (-105, 20), (-114, 29), (-125, 40), (-124, 48), (-140, 60),
+     (-158, 58), (-168, 66)],
+    # Greenland
+    [(-58, 64), (-44, 60), (-32, 68), (-40, 76), (-58, 76), (-62, 70)],
+    # South America
+    [(-79, 9), (-72, 12), (-62, 9), (-52, 5), (-44, -3), (-35, -8),
+     (-40, -20), (-48, -28), (-58, -35), (-65, -41), (-70, -52),
+     (-74, -44), (-73, -30), (-80, -18), (-81, -6), (-79, 9)],
+    # Africa
+    [(-17, 15), (-10, 31), (10, 37), (20, 32), (32, 31), (43, 12),
+     (51, 11), (46, -1), (40, -15), (36, -26), (28, -33), (19, -35),
+     (15, -27), (12, -18), (9, -1), (-8, 4), (-17, 15)],
+    # Eurasia
+    [(-10, 36), (-9, 43), (-2, 48), (0, 51), (8, 57), (18, 56), (21, 55),
+     (28, 59), (30, 70), (45, 68), (60, 69), (75, 73), (100, 77),
+     (130, 72), (160, 70), (178, 66), (162, 60), (142, 52), (135, 43),
+     (127, 40), (122, 31), (110, 20), (105, 9), (100, 7), (92, 16),
+     (88, 22), (80, 13), (77, 8), (72, 20), (66, 25), (58, 25), (52, 27),
+     (48, 30), (44, 29), (36, 36), (30, 36), (27, 40), (23, 36), (19, 42),
+     (12, 44), (3, 43), (-2, 37), (-10, 36)],
+    # Britain
+    [(-5, 50), (-3, 53), (-5, 56), (-3, 58), (-1, 57), (0, 53), (1, 51)],
+    # Japan
+    [(130, 31), (132, 34), (137, 35), (140, 38), (141, 42), (144, 44),
+     (141, 40), (138, 36), (133, 34), (130, 31)],
+    # Australia
+    [(114, -22), (114, -32), (124, -33), (130, -32), (137, -35),
+     (140, -38), (146, -39), (150, -37), (153, -27), (146, -19),
+     (142, -11), (136, -12), (130, -13), (122, -17), (114, -22)],
+    # New Zealand
+    [(167, -45), (170, -42), (174, -39), (177, -38), (174, -41),
+     (170, -44), (167, -45)],
+]
 
 
-def tag(cv, x, y, text):
-    w = text_w(FONTS["R12"], text) + 10
-    cv.rect(x, y, w, 13, TAG_BG[text])
-    draw_text(cv, FONTS["R12"], x + 5, y + 1, text, WHITE)
-    return w
+# -------------------------------------------------------------- layout --
+TAGC = {"CONFIRMED": GREEN, "OFFICIAL": BLUE, "REPORTED": GOLD}
+PIN_OFF = {1: (0, 0), 2: (16, -12), 3: (0, 0), 4: (-18, -10), 5: (18, 8),
+           6: (12, -14), 7: (0, 0), 8: (0, 0), 9: (0, 0), 10: (0, 0),
+           12: (0, 0), 13: (0, 0)}
+
+
+def tag_pill(cv, x, y, label, right):
+    """Small coloured tag; (x, y) is the top-left of the row area."""
+    w = text_w(label, F13R) + 12
+    px = right - w
+    cv.rect(px, y, w, 15, TAGC[label])
+    cv.text(px + 6, y + 2, label, F13R, WHITE)
+    return px
+
+
+def rect_outline(cv, x, y, w, h, c, t=1):
+    cv.hline(x, y, x + w - 1, c, t)
+    cv.hline(x, y + h - 1, x + w - 1, c, t)
+    cv.line(x, y, x, y + h - 1, c, t)
+    cv.line(x + w - 1, y, x + w - 1, y + h - 1, c, t)
+
+
+def banner(cv, x, y, w, label, chip):
+    """Red banner bar with white label and a white chip on the right."""
+    cv.rect(x, y, w, 26, RED)
+    cv.text(x + 8, y + 4, label, F20B, WHITE)
+    cw = text_w(chip, F13R) + 12
+    px = x + w - cw - 6
+    cv.rect(px, y + 4, cw, 18, WHITE)
+    cv.text(px + 6, y + 8, chip, F13R, RED)
 
 
 def build():
-    load_fonts()
-    cv = Canvas(W, H, PAPER)
-    R12, R16, B16, B22, B44 = (FONTS[k] for k in ("R12", "R16", "B16", "B22", "B44"))
-
-    # top bar
-    draw_text(cv, B16, 8, 4, "THE WORLD IN ONE DAY", RED, track=2)
-    right = "35 STORIES · 7 REGIONS · EVERY ONE DATED SATURDAY 21 NOVEMBER 2026"
-    draw_text(cv, R12, W - 8 - text_w(R12, right), 6, right, INK)
-    cv.hline(8, 23, W - 16, INK, 2)
-
-    # masthead
-    draw_text_c(cv, B44, W // 2, 30, "SATURDAY", INK, track=10)
-    draw_text_c(cv, B44, W // 2, 78, "21 NOVEMBER 2026", INK, track=10)
-    cv.hline(8, 126, W - 16, INK, 2)
-
-    # subtitle
-    sub = "Climate summit runs past its deadline · Five missiles shot down over Saudi Arabia · Strong quake shakes Peru"
-    draw_text_c(cv, R16, W // 2, 132, sub, INK)
-    cv.hline(8, 150, W - 16, INK, 1)
-
-    # stat strip
-    bw = 170
-    for i, (num, lab) in enumerate(STATS):
-        x = 8 + i * 171
-        cv.rect(x, 156, bw, 46, LIGHT)
-        draw_text(cv, B22, x + 6, 158, num, RED)
-        for j, ln in enumerate(wrap(R12, lab, bw - 12)):
-            draw_text(cv, R12, x + 6, 182 + j * 12, ln, INK)
-
-    # region bar
-    x = 8
-    total = sum(c for _, c, _ in REGIONS)
-    for name, cnt, col in REGIONS:
-        seg = int((W - 16) * cnt / total)
-        cv.rect(x, 208, seg, 18, col)
-        lab = f"{name} · {cnt}" if seg >= 90 else str(cnt)
-        draw_text_c(cv, R12, x + seg // 2, 211, lab, WHITE)
-        x += seg
-
-    # features
+    cv = Canvas()
+    # ---- top bar
+    cv.rect(0, 0, W, 30, RED)
+    cv.text(10, 6, "The World in One Day", F22B, WHITE)
+    cv.text(1014, 9, "35 stories . 7 regions . every one dated "
+                     "Saturday 21 November 2026", F13R, WHITE, align="right")
+    # ---- masthead
+    cv.text(512, 32, "SATURDAY", F80B, INK, align="center", track=6)
+    cv.text(512, 98, "21 NOVEMBER 2026", F80B, INK, align="center", track=2)
+    cv.hline(8, 172, 1008, INK, 2)
+    # ---- stat strip
+    sx = 8
+    cellw = 1008 // 6
+    for num, lab in STATS:
+        cv.text(sx + cellw // 2, 180, num, F34B, RED, align="center")
+        cv.para(sx + 6, 214, lab, F13R, INK, cellw - 12, 13, maxlines=2)
+        sx += cellw
+    cv.hline(8, 244, 1008, LGREY, 1)
+    # ---- region bar
+    rx = 8
+    for name, col, w in REGIONS:
+        cv.rect(rx, 250, w, 20, col)
+        cv.text(rx + w // 2, 255, name, F13R, WHITE, align="center")
+        rx += w
+    # ---- features
+    fx = [8, 342, 676]
     for i, f in enumerate(FEATURES):
-        x = 8 + i * 341
-        w = 326
-        y = 232
-        if f["scene"] == "riyadh":
-            scene_riyadh(cv, x, y, w, 130)
-        elif f["scene"] == "cop31":
-            scene_cop31(cv, x, y, w, 130)
-        else:
-            scene_peru(cv, x, y, w, 130)
-        draw_text(cv, R12, x, y + 136, f"{f['n']} · {f['place']}", RED)
-        for j, ln in enumerate(wrap(B22, f["head"], w)):
-            draw_text(cv, B22, x, y + 152 + j * 23, ln, INK)
-        for j, ln in enumerate(wrap(R12, f["body"], w)):
-            draw_text(cv, R12, x, y + 200 + j * 13, ln, INK)
-        draw_text(cv, R12, x, y + 256, f["src"], GREY)
-        tag(cv, x + w - 78, y + 254, f["tag"])
-        cv.rect(x, y + 272, w, 1, GREY)
-
-    # medium grid: scene, then a full two-line headline (the old red bar
-    # cut every headline to one line), one body line, source + tag.
+        (ban, chip, kick, head, body, src, tag, scene, lon, lat) = f
+        x = fx[i]
+        y = 276
+        scene(cv, x, y, 328, 96)
+        banner(cv, x, y + 96, 328, ban, chip)
+        cv.text(x, y + 126, kick, F13R, RED)
+        cv.para(x, y + 140, head, F22B, INK, 328, 24, maxlines=2)
+        cv.para(x, y + 192, body, F16R, INK, 328, 16, maxlines=3)
+        cv.text(x, y + 245, src, F13R, GREY)
+        tag_pill(cv, x, y + 243, tag, x + 328)
+    # ---- mediums
+    mx = [8, 209, 410, 611, 812]
     for row in range(2):
         for col in range(5):
-            m = MEDIUM[row * 5 + col]
-            x = 8 + col * 204
-            y = 546 + row * 116
-            w = 198
-            mini_scene(cv, m["scene"], x, y, w, 36)
-            for j, ln in enumerate(wrap_max(B16, m["head"], w - 4, 2)):
-                draw_text(cv, B16, x + 2, y + 40 + j * 17, ln, INK)
-            draw_text(cv, R12, x + 2, y + 78, fit_line(R12, m["body"], w - 4), INK)
-            draw_text(cv, R12, x + 2, y + 96, f"{m['n']} · {m['src']}", GREY)
-            tw = text_w(R12, m["tag"]) + 10
-            tag(cv, x + w - tw, y + 95, m["tag"])
-            cv.rect(x, y + 110, w, 1, GREY)
+            m = MEDIUMS[row * 5 + col]
+            (n, ban, head, body, src, tag, scene, lon, lat) = m
+            x = mx[col]
+            y = 538 + row * 150
+            scene(cv, x, y, 195, 36)
+            cv.rect(x, y + 36, 195, 18, RED)
+            cv.text(x + 5, y + 39, ban, F16R, WHITE)
+            cv.para(x, y + 58, head, F20B, INK, 195, 22, maxlines=2)
+            cv.para(x, y + 104, body, F16R, INK, 195, 16, maxlines=2)
+            cv.text(x, y + 138, src, F13R, GREY)
+            tag_pill(cv, x, y + 134, tag, x + 195)
+    # ---- map + also list
+    my = 838
+    cv.text(8, my, "Where it happened", F16R, INK)
+    cv.text(400, my, "Also on Saturday 21 November - 22 more stories",
+            F16R, RED)
+    mapx, mapy, mapw, maph = 8, my + 18, 384, 106
+    cv.rect(mapx, mapy, mapw, maph, (214, 228, 238))
+    rect_outline(cv, mapx, mapy, mapw, maph, INK, 2)
+    lon0, lon1, lat0, lat1 = -170.0, 190.0, 75.0, -60.0
 
-    # bottom: map + also list
-    draw_text(cv, B16, 8, 782, "WHERE IT HAPPENED", INK)
-    draw_map(cv, 8, 800, 292, 128)
-    draw_text(cv, R12, 8, 932, "Each number is the story with that number on this page.", GREY)
-    draw_text(cv, B16, 312, 782, "ALSO ON SATURDAY 21 NOVEMBER — 22 MORE STORIES", RED)
-    for i, (n, txt, src) in enumerate(ALSO):
-        col = i // 11
-        r = i % 11
-        x = 312 + col * 356
-        y = 802 + r * 12
-        draw_text(cv, R12, x, y, fit_line(R12, f"{n} {txt} ({src})", 350), INK)
+    def proj(lon, lat):
+        px = mapx + 4 + (lon - lon0) / (lon1 - lon0) * (mapw - 8)
+        py = mapy + 4 + (lat0 - lat) / (lat0 - lat1) * (maph - 8)
+        return px, py
 
-    # date check
-    cv.rect(8, 946, W - 16, 32, PAPER)
-    cv.hline(8, 946, W - 16, RED, 2)
-    cv.hline(8, 977, W - 16, RED, 1)
-    cv.vline(8, 946, 32, RED, 2)
-    cv.vline(W - 9, 946, 32, RED, 2)
-    dc = ("DATE CHECK — Left out as Friday's news: Wall Street's fall into correction · the Kyiv bridge "
-          "barrage · the missile that landed in Poland · the UK–EU deal · Cyclone Akvan. Not confirmed when "
-          "drawn: BepiColombo at Mercury · a final COP31 text.")
-    for j, ln in enumerate(wrap(R12, dc, W - 32)):
-        draw_text(cv, R12, 16, 949 + j * 12, ln, INK)
-
-    # footer
-    draw_text_c(cv, R12, W // 2, 982, "Every story here happened, or was first reported, on Saturday 21 November 2026.", INK)
-    draw_text_c(cv, R12, W // 2, 996, "Sources named beside each story · Original drawings · HOW WE CHECKED:", GREY)
-    draw_text_c(cv, R12, W // 2, 1010, "CONFIRMED = 2+ outlets · OFFICIAL = on the record · REPORTED = one outlet · CLAIM = one side's account", GREY)
-
+    for cont in CONTINENTS:
+        cv.poly([(proj(lo, la)[0], proj(lo, la)[1]) for lo, la in cont],
+                LAND)
+    pins = [(i + 1, f[8], f[9]) for i, f in enumerate(FEATURES)]
+    pins += [(m[0], m[7], m[8]) for m in MEDIUMS if m[7] is not None]
+    for n, lon, lat in pins:
+        px, py = proj(lon, lat)
+        dx, dy = PIN_OFF[n]
+        qx, qy = px + dx, py + dy
+        if dx or dy:
+            cv.line(int(px), int(py), int(qx), int(qy), RED, 1)
+        cv.circle(int(qx), int(qy), 2, RED)
+        cv.poly([(qx, qy - 8), (qx + 8, qy), (qx, qy + 8), (qx - 8, qy)],
+                RED)
+        cv.text(int(qx) - text_w(str(n), F13R) // 2, int(qy) - 6,
+                str(n), F13R, WHITE)
+    cv.text(8, my + 126, "Pins 1-13 mark the front-page stories.",
+            F13R, GREY)
+    lx = 400
+    for ci in range(2):
+        colx = lx + ci * 312
+        for ri in range(11):
+            it = ALSO[ci * 11 + ri]
+            n, txt, src = it
+            cv.text(colx, my + 16 + ri * 11,
+                    "%d %s (%s)" % (n, txt, src), F11R, INK)
+    # ---- date check + footer
+    dy = 992
+    cv.rect(8, dy - 6, 1008, 2, RED)
+    cv.para(8, dy + 2, "Date check - left out as Friday 20 November's "
+                       "news: Wall Street's fall into correction . the "
+                       "Kyiv bridge barrage . the missile that landed in "
+                       "Poland . the UK-EU deal . Cyclone Akvan's "
+                       "landfall.", F13R, RED, 1008, 13, maxlines=2)
     return cv
 
 
 def main():
-    cv = build()
-    out = os.environ.get("MAKEFUN_OUTPUT_DIR", ".")
-    os.makedirs(out, exist_ok=True)
-    write_png(os.path.join(out, "entry.png"), cv.px, W, H)
-
-
-# ---------------------------------------------------------------- font data
-# Bitmap glyphs rasterised from DejaVu Serif (regular + bold). Each entry:
-# FONT_<size>[codepoint] = (advance, (row, row, ...)) with rows as hex
-# bitmasks, most significant bit = leftmost pixel.
-FONT_R12 = {}
-FONT_R12_H = 14
-FONT_R12_BASE = 11
-FONT_R12[32] = (4, 0, ())
-FONT_R12[33] = (5, 2, (0x6,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x6))
-FONT_R12[34] = (6, 2, (0x5,0x5,0x5,0x5))
-FONT_R12[35] = (10, 3, (0x12,0x16,0xff,0xff,0x2c,0xff,0x6c,0x68,0x48))
-FONT_R12[36] = (8, 2, (0x4,0xf,0x1d,0x1d,0x1e,0xf,0x7,0x15,0x1f,0x4,0x4))
-FONT_R12[37] = (11, 2, (0x38c,0x6c8,0x6d8,0x6f0,0x3be,0x6b,0x59,0xcb,0x18e))
-FONT_R12[38] = (11, 2, (0x7c,0x64,0x60,0x70,0xfb,0x99,0x8f,0xc6,0x7f))
-FONT_R12[39] = (3, 2, (0x1,0x1,0x1,0x1))
-FONT_R12[40] = (5, 2, (0x1,0x1,0x3,0x3,0x2,0x2,0x2,0x3,0x3,0x1,0x1))
-FONT_R12[41] = (5, 2, (0x2,0x3,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x3,0x2))
-FONT_R12[42] = (6, 2, (0xc,0x3f,0x1e,0x3f,0x2d,0xc))
-FONT_R12[43] = (10, 4, (0x18,0x18,0x18,0xff,0x18,0x18,0x18))
-FONT_R12[44] = (4, 10, (0x6,0x6,0xc))
-FONT_R12[45] = (4, 8, (0xf,))
-FONT_R12[46] = (4, 10, (0x3,0x3))
-FONT_R12[47] = (4, 2, (0x1,0x3,0x3,0x2,0x6,0x6,0x4,0xc,0xc,0x8))
-FONT_R12[48] = (8, 2, (0xf,0x19,0x11,0x11,0x11,0x11,0x11,0x19,0xf))
-FONT_R12[49] = (8, 2, (0xe,0x1e,0x6,0x6,0x6,0x6,0x6,0x6,0x1f))
-FONT_R12[50] = (8, 2, (0x1f,0x11,0x1,0x1,0x3,0x6,0xc,0x18,0x1f))
-FONT_R12[51] = (8, 2, (0x1f,0x11,0x1,0x3,0x7,0x1,0x1,0x11,0x1f))
-FONT_R12[52] = (8, 2, (0xe,0xe,0x1e,0x16,0x36,0x66,0x7f,0x6,0xf))
-FONT_R12[53] = (8, 2, (0x1f,0x10,0x10,0x1f,0x11,0x1,0x1,0x11,0x1f))
-FONT_R12[54] = (8, 2, (0xf,0x19,0x10,0x1f,0x19,0x19,0x19,0x19,0xf))
-FONT_R12[55] = (8, 2, (0x1f,0x11,0x1,0x3,0x3,0x2,0x6,0x4,0xc))
-FONT_R12[56] = (8, 2, (0x1f,0x19,0x19,0x1b,0x1f,0x19,0x11,0x19,0x1f))
-FONT_R12[57] = (8, 2, (0x1f,0x19,0x11,0x11,0x19,0x1f,0x1,0x11,0x1f))
-FONT_R12[58] = (4, 6, (0x3,0x3,0x0,0x3,0x3))
-FONT_R12[59] = (4, 6, (0x6,0x6,0x0,0x6,0x6,0xc,0x8))
-FONT_R12[60] = (10, 4, (0x7,0x1e,0xf8,0xe0,0x7c,0xf,0x1))
-FONT_R12[61] = (10, 6, (0xff,0x0,0xff,0xff))
-FONT_R12[62] = (10, 4, (0xe0,0x78,0x1f,0x7,0x3e,0xf0,0x80))
-FONT_R12[63] = (6, 2, (0xf,0x9,0x1,0x1,0x7,0x4,0x4,0x6,0x6))
-FONT_R12[64] = (12, 3, (0xfc,0x182,0x33d,0x26d,0x2cd,0x2cd,0x2cd,0x37e,0x300,0x1c4,0x78))
-FONT_R12[65] = (9, 2, (0x18,0x38,0x2c,0x2c,0x6c,0x46,0x7e,0xc6,0x1c7))
-FONT_R12[66] = (9, 2, (0x1fc,0x46,0x46,0x4e,0x7e,0x46,0x46,0x46,0x1fe))
-FONT_R12[67] = (9, 2, (0x7e,0xc2,0xc2,0x180,0x180,0x180,0xc3,0xc6,0x7e))
-FONT_R12[68] = (10, 2, (0x1fc,0x46,0x43,0x43,0x43,0x43,0x43,0x46,0x1fc))
-FONT_R12[69] = (9, 2, (0x1fe,0x42,0x40,0x44,0x7c,0x44,0x40,0x42,0x1fe))
-FONT_R12[70] = (8, 2, (0xff,0x21,0x20,0x22,0x3e,0x22,0x20,0x20,0xf8))
-FONT_R12[71] = (10, 2, (0x7f,0xc3,0xc3,0x180,0x180,0x187,0xc3,0xc3,0x7f))
-FONT_R12[72] = (10, 2, (0x3cf,0x86,0x86,0x86,0xfe,0x86,0x86,0x86,0x3cf))
-FONT_R12[73] = (5, 2, (0xf,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0xf))
-FONT_R12[74] = (5, 2, (0xf,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x26,0x36,0x1c))
-FONT_R12[75] = (9, 2, (0x1e7,0x4c,0x58,0x70,0x70,0x78,0x5c,0x4e,0x1e7))
-FONT_R12[76] = (8, 2, (0xf0,0x20,0x20,0x20,0x20,0x20,0x20,0x21,0xff))
-FONT_R12[77] = (12, 2, (0xf07,0x30e,0x38e,0x39e,0x2d6,0x2f6,0x266,0x266,0xf0f))
-FONT_R12[78] = (10, 2, (0x3c7,0xc2,0xe2,0xb2,0xba,0x9a,0x8e,0x86,0x3c6))
-FONT_R12[79] = (10, 2, (0xfc,0x186,0x186,0x306,0x302,0x306,0x186,0x186,0xfc))
-FONT_R12[80] = (8, 2, (0xfe,0x23,0x23,0x23,0x3e,0x20,0x20,0x20,0xf8))
-FONT_R12[81] = (10, 2, (0xfc,0x186,0x186,0x306,0x302,0x306,0x186,0x186,0xfc,0x18,0xc))
-FONT_R12[82] = (9, 2, (0x1fc,0x46,0x46,0x4e,0x7c,0x4c,0x46,0x46,0x1e3))
-FONT_R12[83] = (8, 2, (0x3f,0x31,0x31,0x38,0x1f,0x7,0x21,0x21,0x3f))
-FONT_R12[84] = (8, 2, (0xff,0x99,0x18,0x18,0x18,0x18,0x18,0x18,0x3c))
-FONT_R12[85] = (10, 2, (0x3cf,0x186,0x186,0x186,0x186,0x186,0x186,0xc4,0xfc))
-FONT_R12[86] = (9, 2, (0x1e3,0xc2,0x62,0x66,0x64,0x34,0x3c,0x38,0x18))
-FONT_R12[87] = (12, 2, (0xe23,0x672,0x672,0x672,0x3d6,0x39c,0x39c,0x39c,0x18c))
-FONT_R12[88] = (9, 2, (0xf7,0x76,0x34,0x1c,0x18,0x1c,0x3e,0x66,0xe7))
-FONT_R12[89] = (8, 2, (0x1e7,0xe6,0x6c,0x38,0x38,0x10,0x10,0x10,0x38))
-FONT_R12[90] = (8, 2, (0xff,0xc6,0xe,0xc,0x18,0x38,0x30,0x61,0xff))
-FONT_R12[91] = (5, 2, (0x3,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x3))
-FONT_R12[92] = (4, 2, (0x8,0xc,0xc,0x4,0x6,0x6,0x2,0x3,0x3,0x1))
-FONT_R12[93] = (5, 2, (0x3,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x3))
-FONT_R12[94] = (10, 2, (0x1c,0x3c,0x66,0xc3))
-FONT_R12[95] = (6, 13, (0x3f,))
-FONT_R12[96] = (6, 2, (0xc,0x6))
-FONT_R12[97] = (7, 5, (0x3e,0x26,0x3e,0x72,0x66,0x3f))
-FONT_R12[98] = (8, 2, (0x70,0x30,0x30,0x3f,0x33,0x31,0x31,0x33,0x7f))
-FONT_R12[99] = (7, 5, (0x1f,0x11,0x30,0x30,0x11,0x1f))
-FONT_R12[100] = (8, 2, (0x7,0x3,0x3,0x3f,0x23,0x63,0x63,0x23,0x3f))
-FONT_R12[101] = (7, 5, (0x3e,0x23,0x7f,0x60,0x23,0x3e))
-FONT_R12[102] = (4, 2, (0x7,0xd,0xc,0x1f,0xc,0xc,0xc,0xc,0x1e))
-FONT_R12[103] = (8, 5, (0x3f,0x23,0x63,0x63,0x23,0x3f,0x23,0x36,0x1c))
-FONT_R12[104] = (8, 2, (0x70,0x30,0x30,0x3e,0x33,0x33,0x33,0x33,0x7f))
-FONT_R12[105] = (4, 2, (0x6,0x6,0x0,0xe,0x6,0x6,0x6,0x6,0xf))
-FONT_R12[106] = (4, 2, (0x6,0x2,0x0,0x6,0x2,0x2,0x2,0x2,0x2,0x12,0x1e,0xc))
-FONT_R12[107] = (7, 2, (0x70,0x30,0x30,0x37,0x3c,0x3c,0x3c,0x36,0x7f))
-FONT_R12[108] = (4, 2, (0xe,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0xf))
-FONT_R12[109] = (11, 5, (0x7fe,0x332,0x332,0x332,0x332,0x7f7))
-FONT_R12[110] = (8, 5, (0x7e,0x33,0x33,0x33,0x33,0x7f))
-FONT_R12[111] = (7, 5, (0x3e,0x23,0x63,0x63,0x23,0x3e))
-FONT_R12[112] = (8, 5, (0x7f,0x33,0x31,0x31,0x33,0x3f,0x30,0x30,0x78))
-FONT_R12[113] = (8, 5, (0x3f,0x23,0x63,0x63,0x23,0x3f,0x3,0x3,0x7))
-FONT_R12[114] = (6, 5, (0x3f,0x1d,0x18,0x18,0x18,0x3c))
-FONT_R12[115] = (6, 5, (0x1e,0x32,0x1c,0xf,0x33,0x3e))
-FONT_R12[116] = (5, 3, (0xc,0xc,0x1f,0xc,0xc,0xc,0xd,0xf))
-FONT_R12[117] = (8, 5, (0x77,0x33,0x33,0x33,0x33,0x3f))
-FONT_R12[118] = (7, 5, (0x7b,0x32,0x1a,0x1e,0x1c,0xc))
-FONT_R12[119] = (10, 5, (0x3b3,0x1ba,0x1ba,0xee,0xcc,0xcc))
-FONT_R12[120] = (7, 5, (0x77,0x34,0x1c,0x1c,0x3e,0x7f))
-FONT_R12[121] = (7, 5, (0x7b,0x32,0x1a,0x1e,0x1c,0xc,0x8,0x28,0x30))
-FONT_R12[122] = (6, 5, (0x3f,0x36,0xe,0xc,0x19,0x3f))
-FONT_R12[123] = (8, 2, (0x7,0x6,0x6,0x6,0x6,0x1c,0x6,0x6,0x6,0x6,0x7))
-FONT_R12[124] = (4, 2, (0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3))
-FONT_R12[125] = (8, 2, (0x1c,0x6,0x6,0x6,0x6,0x7,0x6,0x6,0x6,0x6,0x1c))
-FONT_R12[126] = (10, 6, (0x70,0xff,0xe))
-FONT_R12[8211] = (6, 8, (0x3f,))
-FONT_R12[8212] = (12, 8, (0xfff,))
-FONT_R12[183] = (4, 6, (0x3,0x3))
-FONT_R12[8226] = (7, 5, (0x7,0x7,0x7,0x7))
-FONT_R12[8217] = (4, 2, (0x3,0x3,0x2))
-FONT_R12[8216] = (4, 2, (0x1,0x3,0x3))
-FONT_R12[8220] = (6, 2, (0x5,0xf,0xf))
-FONT_R12[8221] = (6, 2, (0xd,0xd,0xb))
-FONT_R16 = {}
-FONT_R16_H = 19
-FONT_R16_BASE = 15
-FONT_R16[32] = (5, 0, ())
-FONT_R16[33] = (6, 3, (0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x0,0x3,0x3,0x3))
-FONT_R16[34] = (7, 3, (0x1b,0x1b,0x1b,0x1b,0x1b))
-FONT_R16[35] = (13, 3, (0x66,0x66,0x6c,0x3ff,0x3ff,0xcc,0xd8,0x7ff,0x198,0x190,0x1b0,0x130))
-FONT_R16[36] = (10, 3, (0x18,0x18,0x7e,0xff,0xdb,0xf8,0x7c,0x3f,0x1f,0xdb,0xff,0x7e,0x18,0x18))
-FONT_R16[37] = (15, 3, (0xf0c,0x1b18,0x1918,0x11b0,0x1b60,0x1f6f,0xedb,0x199,0x191,0x31b,0x31f,0x60e))
-FONT_R16[38] = (14, 3, (0x3f0,0x330,0x310,0x300,0x38f,0x7cf,0xce6,0xc76,0xc3c,0xe1c,0x7ff,0x1c7))
-FONT_R16[39] = (4, 3, (0x3,0x3,0x3,0x3,0x3))
-FONT_R16[40] = (6, 3, (0x1,0x3,0x6,0x6,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0x6,0x6,0x3,0x1))
-FONT_R16[41] = (6, 3, (0xc,0xe,0x6,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x7,0x6,0xc,0x8))
-FONT_R16[42] = (8, 3, (0x18,0xdb,0xff,0x3c,0x7e,0xdb,0x18,0x18))
-FONT_R16[43] = (13, 5, (0x30,0x30,0x30,0x30,0x7ff,0x7ff,0x30,0x30,0x30,0x30))
-FONT_R16[44] = (5, 13, (0x6,0x6,0xc,0x18))
-FONT_R16[45] = (5, 10, (0x1f,))
-FONT_R16[46] = (5, 13, (0x7,0x7))
-FONT_R16[47] = (5, 3, (0x1,0x3,0x3,0x3,0x6,0x6,0x6,0xc,0xc,0xc,0x18,0x18,0x18))
-FONT_R16[48] = (10, 3, (0x3e,0x66,0xe3,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,0xe7,0x7e,0x1c))
-FONT_R16[49] = (10, 3, (0x1c,0x3c,0x2c,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0x3f,0x3f))
-FONT_R16[50] = (10, 3, (0xfe,0xce,0xc7,0x7,0x6,0x6,0xc,0x18,0x33,0x63,0xff,0xff))
-FONT_R16[51] = (10, 3, (0x7e,0xe7,0xc3,0x7,0x1e,0x1e,0x7,0x3,0x83,0xc7,0xff,0x3c))
-FONT_R16[52] = (10, 3, (0x18,0x38,0x78,0x78,0xd8,0x198,0x118,0x3ff,0x18,0x18,0x7e,0x7e))
-FONT_R16[53] = (10, 3, (0x7e,0x7e,0x40,0x7c,0x7e,0x47,0x3,0x3,0xc3,0xc7,0xfe,0x3c))
-FONT_R16[54] = (10, 3, (0x3f,0x73,0xe3,0xdc,0xff,0xe3,0xc3,0xc3,0xc3,0xe3,0x7e,0x3c))
-FONT_R16[55] = (10, 3, (0xff,0xff,0xc3,0x6,0x6,0x4,0xc,0xc,0x18,0x18,0x30,0x30))
-FONT_R16[56] = (10, 3, (0x7e,0xe7,0xc3,0xe3,0x7e,0x7e,0xe3,0xc3,0xc3,0xe3,0x7f,0x3c))
-FONT_R16[57] = (10, 3, (0x7e,0xe6,0xc3,0xc3,0xc3,0xc3,0xe7,0x7f,0x3,0xc6,0xfe,0x78))
-FONT_R16[58] = (5, 8, (0x7,0x7,0x0,0x0,0x0,0x7,0x7))
-FONT_R16[59] = (5, 8, (0x6,0x6,0x0,0x0,0x0,0x6,0x6,0xc,0x18))
-FONT_R16[60] = (13, 5, (0x7,0x1f,0xf8,0x7e0,0x780,0x3f0,0x7e,0xf,0x1))
-FONT_R16[61] = (13, 8, (0x7ff,0x7ff,0x0,0x7ff,0x7ff))
-FONT_R16[62] = (13, 5, (0x700,0x3e0,0xfc,0x1f,0xf,0x7e,0x1f0,0x780,0x600))
-FONT_R16[63] = (9, 3, (0x3f,0x33,0x21,0x1,0x1,0x3,0xe,0xc,0xc,0xc,0xc,0xc))
-FONT_R16[64] = (16, 3, (0x3f8,0xf1c,0x1c06,0x19db,0x33f9,0x3339,0x3619,0x361b,0x333b,0x33fe,0x19d8,0x1c00,0xf18,0x3f0))
-FONT_R16[65] = (12, 3, (0x60,0x70,0xf0,0xf8,0x1b8,0x198,0x11c,0x3fc,0x3fe,0x60e,0xf0f,0xf0f))
-FONT_R16[66] = (12, 3, (0x3fe,0x18e,0x186,0x186,0x1fe,0x1fe,0x187,0x183,0x183,0x187,0x3fe,0x3fc))
-FONT_R16[67] = (12, 3, (0xff,0x1c7,0x383,0x301,0x300,0x300,0x300,0x300,0x383,0x183,0xfe,0x38))
-FONT_R16[68] = (13, 3, (0x7f8,0x31e,0x306,0x307,0x303,0x303,0x303,0x303,0x307,0x30e,0x7fc,0x7f0))
-FONT_R16[69] = (12, 3, (0x1ff,0xc1,0xc1,0xc2,0xfe,0xfe,0xc2,0xc0,0xc0,0xc1,0x1ff,0x1ff))
-FONT_R16[70] = (11, 3, (0x1ff,0xc1,0xc1,0xc2,0xfe,0xfe,0xc2,0xc0,0xc0,0xc0,0x1f0,0x1f0))
-FONT_R16[71] = (13, 3, (0x1fe,0x38e,0x706,0x602,0x600,0x600,0x61f,0x603,0x703,0x303,0x1ff,0x78))
-FONT_R16[72] = (14, 3, (0xf9f,0x606,0x606,0x606,0x7fe,0x7fe,0x606,0x606,0x606,0x606,0xf9f,0xf9f))
-FONT_R16[73] = (6, 3, (0xf,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0xf,0xf))
-FONT_R16[74] = (6, 3, (0x3e,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0x8c,0xdc,0xf8))
-FONT_R16[75] = (12, 3, (0x3ef,0x186,0x18c,0x1b8,0x1f0,0x1e0,0x1f0,0x1b8,0x19c,0x18e,0x3e7,0x3e3))
-FONT_R16[76] = (11, 3, (0xf8,0x60,0x60,0x60,0x60,0x60,0x60,0x60,0x60,0x60,0xff,0xff))
-FONT_R16[77] = (16, 3, (0x3c07,0x1c0e,0x1e0e,0x1e1e,0x1f16,0x1b36,0x1ba6,0x19e6,0x19c6,0x18c6,0x3c0f,0x3c0f))
-FONT_R16[78] = (14, 3, (0xf0f,0x702,0x782,0x7c2,0x6e2,0x672,0x672,0x63a,0x61e,0x60e,0xf06,0xf06))
-FONT_R16[79] = (13, 3, (0x1fc,0x38e,0x707,0x603,0x603,0x603,0x603,0x603,0x703,0x306,0x1fc,0x78))
-FONT_R16[80] = (11, 3, (0x1fe,0xc7,0xc3,0xc3,0xc3,0xff,0xfc,0xc0,0xc0,0xc0,0x1f0,0x1f0))
-FONT_R16[81] = (13, 3, (0x1fc,0x38e,0x707,0x603,0x603,0x603,0x603,0x603,0x703,0x306,0x1fc,0x70,0x1e,0xe))
-FONT_R16[82] = (12, 3, (0x3fe,0x18e,0x187,0x187,0x18e,0x1fc,0x18c,0x18e,0x186,0x187,0x3e3,0x3e3))
-FONT_R16[83] = (11, 3, (0xfe,0x1c6,0x182,0x182,0x1e0,0xfc,0x3f,0x7,0x183,0x183,0x1fe,0x7c))
-FONT_R16[84] = (11, 3, (0x7ff,0x463,0x463,0x60,0x60,0x60,0x60,0x60,0x60,0x60,0xf8,0xf8))
-FONT_R16[85] = (13, 3, (0x7c7,0x303,0x303,0x303,0x303,0x303,0x303,0x303,0x302,0x386,0x1fe,0x78))
-FONT_R16[86] = (12, 3, (0xf87,0x702,0x306,0x386,0x18c,0x18c,0x1c8,0xd8,0xf8,0x70,0x70,0x60))
-FONT_R16[87] = (16, 3, (0xf8c7,0x61c2,0x71c2,0x31e6,0x3366,0x3b64,0x1a6c,0x1a7c,0x1e38,0x1c38,0xc38,0xc18))
-FONT_R16[88] = (11, 3, (0x7cf,0x386,0x1cc,0xf8,0xf0,0x70,0x78,0xd8,0x19c,0x18e,0x79f,0x79f))
-FONT_R16[89] = (11, 3, (0x7c7,0x386,0x1c6,0xcc,0xf8,0x78,0x30,0x30,0x30,0x30,0xf8,0xf8))
-FONT_R16[90] = (11, 3, (0x3fe,0x20e,0x21c,0x18,0x38,0x70,0x60,0xe0,0x1c0,0x383,0x3ff,0x7ff))
-FONT_R16[91] = (6, 3, (0xf,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xc,0xf,0xf))
-FONT_R16[92] = (5, 3, (0x18,0x18,0x18,0xc,0xc,0xc,0x6,0x6,0x6,0x3,0x3,0x3,0x1))
-FONT_R16[93] = (6, 3, (0xf,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0xf,0xf))
-FONT_R16[94] = (13, 3, (0x38,0x7c,0xee,0x1c3,0x101))
-FONT_R16[95] = (8, 18, (0xff,))
-FONT_R16[96] = (8, 2, (0x38,0x18,0xc))
-FONT_R16[97] = (10, 6, (0x3e,0x67,0x63,0x3f,0x7f,0x63,0x63,0x7f,0x3b))
-FONT_R16[98] = (10, 3, (0x3c0,0xc0,0xc0,0xf8,0xfe,0xc6,0xc7,0xc7,0xc7,0xc6,0xee,0x3fc))
-FONT_R16[99] = (9, 6, (0x3f,0x73,0x61,0x60,0x60,0x60,0x63,0x3f,0x1e))
-FONT_R16[100] = (10, 3, (0xf,0x3,0x3,0x3b,0xff,0xc7,0xc3,0xc3,0xc3,0xc7,0xe7,0x7f))
-FONT_R16[101] = (9, 6, (0x3e,0x73,0x63,0x7f,0x7f,0x60,0x61,0x3f,0x1e))
-FONT_R16[102] = (6, 3, (0x1f,0x1b,0x18,0x7e,0x7e,0x18,0x18,0x18,0x18,0x18,0x18,0x7c))
-FONT_R16[103] = (10, 6, (0x7f,0xe7,0xc7,0xc3,0xc3,0xc3,0xc7,0xff,0x3b,0x7,0xce,0xfc))
-FONT_R16[104] = (10, 3, (0x3c0,0xc0,0xc0,0xd8,0xfc,0xc6,0xc6,0xc6,0xc6,0xc6,0xc6,0x3ef))
-FONT_R16[105] = (5, 3, (0xe,0xe,0x0,0x1e,0x1e,0x6,0x6,0x6,0x6,0x6,0x6,0x1f))
-FONT_R16[106] = (5, 3, (0xe,0xe,0x0,0x1e,0x1e,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x66,0x7c,0x38))
-FONT_R16[107] = (10, 3, (0x3c0,0xc0,0xc0,0xdf,0xdf,0xd8,0xf0,0xf0,0xd8,0xdc,0xce,0x3ff))
-FONT_R16[108] = (5, 3, (0x1e,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x6,0x1f))
-FONT_R16[109] = (15, 6, (0x7fbc,0x1dee,0x18c6,0x18c6,0x18c6,0x18c6,0x18c6,0x7fef,0x7fef))
-FONT_R16[110] = (10, 6, (0x3fc,0xee,0xc6,0xc6,0xc6,0xc6,0xc6,0x3ef,0x3ef))
-FONT_R16[111] = (10, 6, (0x3e,0x73,0x61,0x61,0x61,0x61,0x63,0x3f,0x1e))
-FONT_R16[112] = (10, 6, (0x3fc,0xee,0xc6,0xc7,0xc7,0xc7,0xc6,0xfe,0xf8,0xc0,0xc0,0x3e0))
-FONT_R16[113] = (10, 6, (0x7f,0xe7,0xc7,0xc3,0xc3,0xc3,0xc7,0xff,0x3b,0x3,0x3,0xf))
-FONT_R16[114] = (8, 6, (0xff,0x3b,0x30,0x30,0x30,0x30,0x30,0xf8,0xf8))
-FONT_R16[115] = (8, 6, (0x3f,0x33,0x31,0x3c,0x1f,0x3,0x21,0x3f,0x1e))
-FONT_R16[116] = (6, 4, (0x18,0x18,0x3f,0x3f,0x18,0x18,0x18,0x18,0x19,0xd,0xf))
-FONT_R16[117] = (10, 6, (0x39e,0x186,0x186,0x186,0x186,0x186,0xce,0xff,0x77))
-FONT_R16[118] = (9, 6, (0x1f7,0xc3,0x62,0x66,0x74,0x3c,0x3c,0x18,0x18))
-FONT_R16[119] = (14, 6, (0x1e67,0xc63,0xc72,0x6f2,0x6b6,0x69c,0x39c,0x31c,0x308))
-FONT_R16[120] = (9, 6, (0x1ef,0xe4,0x6c,0x38,0x38,0x3c,0x6c,0x1ef,0x1ef))
-FONT_R16[121] = (9, 6, (0x1f7,0xc3,0x62,0x66,0x76,0x3c,0x3c,0x18,0x18,0x18,0xb0,0xf0))
-FONT_R16[122] = (8, 6, (0x7f,0x47,0x4e,0x1c,0x18,0x30,0x71,0xff,0xff))
-FONT_R16[123] = (10, 3, (0x7,0xe,0xc,0xc,0xc,0xc,0x1c,0x38,0x1c,0xc,0xc,0xc,0xc,0xe,0x7))
-FONT_R16[124] = (5, 3, (0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1,0x1))
-FONT_R16[125] = (10, 3, (0x38,0xc,0xc,0xc,0xc,0xc,0xe,0x7,0xe,0xc,0xc,0xc,0xc,0xc,0x38))
-FONT_R16[126] = (13, 8, (0x1c1,0x3ff,0x63e))
-FONT_R16[8211] = (8, 10, (0xff,))
-FONT_R16[8212] = (16, 10, (0xffff,))
-FONT_R16[183] = (5, 8, (0x7,0x7))
-FONT_R16[8226] = (9, 6, (0xf,0x1f,0x1f,0x1f,0xe))
-FONT_R16[8217] = (5, 3, (0x3,0x3,0x7,0x6))
-FONT_R16[8216] = (5, 3, (0x1,0x3,0x3,0x6))
-FONT_R16[8220] = (8, 3, (0x9,0x1b,0x1b,0x37))
-FONT_R16[8221] = (8, 3, (0x1b,0x1b,0x3b,0x36))
-FONT_B16 = {}
-FONT_B16_H = 19
-FONT_B16_BASE = 15
-FONT_B16[32] = (6, 0, ())
-FONT_B16[33] = (7, 4, (0x7,0x7,0x7,0x7,0x7,0x2,0x2,0x2,0x7,0x7,0x7,0x7))
-FONT_B16[34] = (8, 4, (0x3b,0x3b,0x3b,0x3b,0x3b))
-FONT_B16[35] = (13, 4, (0x66,0x6e,0xee,0x3ff,0x3ff,0xdc,0x1dc,0x7ff,0x7ff,0x198,0x3b8,0x3b0))
-FONT_B16[36] = (11, 3, (0x10,0x10,0xfe,0x1f6,0x1d2,0x1f0,0x1fe,0x7f,0x1f,0x197,0x1d7,0x1fe,0x10,0x10))
-FONT_B16[37] = (15, 4, (0x3e18,0x7730,0x7730,0x7760,0x77c0,0x3efe,0x1db7,0x3f7,0x377,0x637,0x63f,0xc1c))
-FONT_B16[38] = (14, 4, (0x7f0,0x730,0xf30,0x700,0x78f,0x1fcf,0x1de6,0x3cf4,0x3c7c,0x1e3c,0x1fff,0x7cf))
-FONT_B16[39] = (5, 4, (0x7,0x7,0x7,0x7,0x7))
-FONT_B16[40] = (8, 3, (0x1,0x3,0x7,0xe,0xe,0x1e,0x1e,0x1e,0x1e,0x1e,0xe,0xe,0x7,0x3,0x0))
-FONT_B16[41] = (8, 3, (0x18,0x1c,0xe,0xf,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0xe,0x1e,0x18,0x10))
-FONT_B16[42] = (8, 4, (0x18,0xdb,0xff,0x3c,0xff,0xdb,0x18))
-FONT_B16[43] = (13, 5, (0x30,0x30,0x30,0x30,0x7ff,0x7ff,0x30,0x30,0x30,0x30))
-FONT_B16[44] = (6, 13, (0x6,0xe,0xe,0x1c,0x18))
-FONT_B16[45] = (7, 10, (0xf,0xf))
-FONT_B16[46] = (6, 12, (0x7,0x7,0x7))
-FONT_B16[47] = (6, 4, (0x3,0x7,0x6,0x6,0xe,0xc,0xc,0x1c,0x18,0x18,0x38,0x38,0x30))
-FONT_B16[48] = (11, 4, (0x7e,0xef,0x1c7,0x1c7,0x1c7,0x1c7,0x1c7,0x1c7,0x1c7,0x1e7,0xfe,0x38))
-FONT_B16[49] = (11, 4, (0x3e,0x7e,0x5e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x7f,0x7f))
-FONT_B16[50] = (11, 4, (0x1fc,0x19e,0x18f,0xf,0xf,0xe,0x1c,0x78,0xe3,0x1ff,0x1ff,0x1ff))
-FONT_B16[51] = (11, 4, (0x1fe,0x1df,0x18f,0xf,0x3e,0x3e,0xf,0x7,0x107,0x18f,0x1ff,0xfc))
-FONT_B16[52] = (11, 4, (0x3c,0x7c,0x7c,0xfc,0x1bc,0x1bc,0x33c,0x7ff,0x7ff,0x3c,0x7e,0x7e))
-FONT_B16[53] = (11, 4, (0xfe,0xfe,0x80,0x80,0xfe,0xdf,0xf,0xf,0x18f,0x18f,0x1fe,0xf8))
-FONT_B16[54] = (11, 4, (0x7f,0xf7,0x1e3,0x1dc,0x1ff,0x1e7,0x1e7,0x1c7,0x1e7,0x1e7,0xff,0x3c))
-FONT_B16[55] = (11, 4, (0x1ff,0x1ff,0x187,0x186,0xe,0xc,0xc,0x18,0x18,0x30,0x30,0x60))
-FONT_B16[56] = (11, 4, (0xfe,0x1ef,0x1e7,0x1ef,0xfe,0xfe,0x1c7,0x1c7,0x1c7,0x1c7,0x1ff,0x7c))
-FONT_B16[57] = (11, 4, (0xfc,0x1ee,0x1c7,0x1c7,0x1c7,0x1c7,0x1ef,0xff,0x7,0x18e,0x1fe,0xf8))
-FONT_B16[58] = (6, 7, (0xe,0xf,0xe,0x0,0x0,0xe,0xf,0xe))
-FONT_B16[59] = (6, 7, (0x1c,0x1e,0x1c,0x0,0x0,0xc,0xc,0x1c,0x1c,0x38,0x10))
-FONT_B16[60] = (13, 6, (0x7,0x1f,0xfe,0x7f0,0x780,0x7f0,0xfe,0x1f,0x7))
-FONT_B16[61] = (13, 7, (0x7ff,0x7ff,0x0,0x0,0x7ff,0x7ff))
-FONT_B16[62] = (13, 6, (0x700,0x7e0,0x1fc,0x7f,0xf,0x7f,0x1fc,0x7e0,0x700))
-FONT_B16[63] = (9, 4, (0x7f,0x67,0x47,0x7,0x7,0xf,0x1c,0x18,0x18,0x3c,0x3c,0x18))
-FONT_B16[64] = (16, 4, (0x3f8,0xf1c,0x1c06,0x19db,0x33fb,0x3739,0x3719,0x371b,0x373b,0x3bfe,0x19d8,0x1c00,0xf18,0x3f8))
-FONT_B16[65] = (12, 4, (0xe0,0xf0,0x1f0,0x1f0,0x378,0x378,0x23c,0x7fc,0x61c,0xc1e,0x1e3f,0x1e3f))
-FONT_B16[66] = (14, 4, (0x7fe,0x38f,0x387,0x387,0x38f,0x3fe,0x38f,0x387,0x387,0x387,0x7ff,0x7fc))
-FONT_B16[67] = (13, 4, (0x1fe,0x3cf,0x783,0x783,0x700,0xf00,0xf00,0x700,0x783,0x387,0x1fe,0x78))
-FONT_B16[68] = (14, 4, (0xffc,0x71e,0x70f,0x70f,0x707,0x707,0x707,0x70f,0x70f,0x71e,0xffc,0xff0))
-FONT_B16[69] = (12, 4, (0x3ff,0x1c1,0x1c1,0x1c6,0x1c6,0x1fe,0x1c6,0x1c6,0x1c0,0x1c1,0x3ff,0x3ff))
-FONT_B16[70] = (11, 4, (0x1ff,0xf0,0xf0,0xf3,0xf3,0xff,0xf3,0xf3,0xf0,0xf0,0x1f8,0x1f8))
-FONT_B16[71] = (14, 4, (0x3fe,0x78e,0xf06,0xf02,0xe00,0x1e00,0x1e1f,0xe0f,0xf0f,0xf0f,0x3ff,0xf8))
-FONT_B16[72] = (15, 4, (0x1fbf,0xe0e,0xe0e,0xe0e,0xe0e,0xffe,0xe0e,0xe0e,0xe0e,0xe0e,0x1fbf,0x1fbf))
-FONT_B16[73] = (7, 4, (0x1f,0xe,0xe,0xe,0xe,0xe,0xe,0xe,0xe,0xe,0x1f,0x1f))
-FONT_B16[74] = (8, 4, (0x7f,0x1c,0x1c,0x1c,0x1c,0x1c,0x1c,0x1c,0x1c,0x1c,0x1c,0x1c,0x19c,0x1bc,0x1f8))
-FONT_B16[75] = (14, 4, (0xfcf,0x70e,0x718,0x730,0x7e0,0x7f0,0x7f8,0x77c,0x73e,0x71f,0xfcf,0xfc7))
-FONT_B16[76] = (11, 4, (0x1f8,0xe0,0xe0,0xe0,0xe0,0xe0,0xe0,0xe0,0xe0,0xe0,0x1ff,0x1ff))
-FONT_B16[77] = (18, 4, (0x1f81f,0x7c3e,0x7c3e,0x5c7e,0x5e7e,0x5ede,0x4fde,0x4f9e,0x479e,0x471e,0x1f03f,0x1f03f))
-FONT_B16[78] = (15, 4, (0x3e0f,0xf06,0xf86,0xfc6,0xfe6,0xdf6,0xcf6,0xc7e,0xc7e,0xc3e,0x3e1e,0x3e0e))
-FONT_B16[79] = (14, 4, (0x7f8,0xf3c,0x1e1e,0x1e1e,0x1c0e,0x3c0e,0x3c0e,0x1c1e,0x1e1e,0x1e1c,0xff8,0x1e0))
-FONT_B16[80] = (12, 4, (0x3fe,0x1cf,0x1c7,0x1c7,0x1c7,0x1cf,0x1fe,0x1c0,0x1c0,0x1c0,0x3f0,0x3f0))
-FONT_B16[81] = (14, 4, (0x7f8,0xf3c,0x1e1e,0x1e1e,0x1c0e,0x3c0e,0x3c0e,0x1c1e,0x1e1e,0x1e1c,0xff8,0x1e0,0x78,0x38,0x18))
-FONT_B16[82] = (13, 4, (0x7fe,0x39f,0x38f,0x38f,0x38f,0x3fe,0x3fc,0x39e,0x38e,0x38f,0x7e7,0x7e7))
-FONT_B16[83] = (12, 4, (0xff,0x1e7,0x1c3,0x1c1,0x1f8,0x1ff,0xff,0xf,0x183,0x183,0x1ff,0x7c))
-FONT_B16[84] = (12, 4, (0xfff,0x8f3,0x8f3,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0x1f8,0x1f8))
-FONT_B16[85] = (14, 4, (0x3f9f,0xe04,0xe04,0xe04,0xe04,0xe04,0xe04,0xe04,0xf04,0xf0c,0x7f8,0x1f0))
-FONT_B16[86] = (12, 4, (0x1f8f,0xf06,0x786,0x784,0x3cc,0x3cc,0x3d8,0x1f8,0x1f0,0xf0,0xf0,0x60))
-FONT_B16[87] = (18, 4, (0x7e38f,0x3c386,0x1c7c4,0x1e7cc,0x1e5cc,0xede8,0xfdf8,0xf8f8,0x78f0,0x78f0,0x70f0,0x7060))
-FONT_B16[88] = (12, 4, (0xfdf,0x78c,0x3cc,0x3f8,0x1f0,0xf0,0xf8,0x1fc,0x1bc,0x31e,0xfbf,0xfbf))
-FONT_B16[89] = (11, 4, (0xfcf,0x786,0x3c6,0x3ec,0x1f8,0xf8,0xf0,0x70,0x70,0x70,0x1fc,0x1fc))
-FONT_B16[90] = (12, 4, (0x3ff,0x20f,0x21e,0x3e,0x3c,0x78,0xf0,0x1f0,0x1e0,0x3c1,0x7ff,0x7ff))
-FONT_B16[91] = (8, 3, (0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7))
-FONT_B16[92] = (6, 4, (0x30,0x38,0x38,0x18,0x18,0x1c,0xc,0xc,0xe,0x6,0x6,0x7,0x3))
-FONT_B16[93] = (8, 3, (0x1f,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x1f,0x1f))
-FONT_B16[94] = (13, 4, (0x3c,0x7c,0xfe,0x1c7,0x181))
-FONT_B16[95] = (8, 17, (0xff,0xff))
-FONT_B16[96] = (8, 2, (0x38,0x1c,0xc))
-FONT_B16[97] = (10, 7, (0x1fc,0x19e,0x18e,0xfe,0x1fe,0x3ce,0x3de,0x1ff,0xef))
-FONT_B16[98] = (11, 3, (0x7c0,0x3c0,0x3c0,0x3f8,0x3fe,0x3ce,0x3cf,0x3cf,0x3cf,0x3cf,0x3de,0x7fc))
-FONT_B16[99] = (10, 7, (0x7f,0xf3,0xe3,0x1e0,0x1e0,0xe3,0xe3,0x7f,0x3c))
-FONT_B16[100] = (11, 3, (0x3e,0xe,0xe,0xee,0x3fe,0x39e,0x78e,0x78e,0x78e,0x39e,0x3de,0x1ff))
-FONT_B16[101] = (10, 7, (0xfc,0x1ee,0x1ce,0x3cf,0x3ff,0x3c2,0x1c6,0x1fe,0x78))
-FONT_B16[102] = (7, 3, (0x3f,0x3b,0x78,0xfe,0xfe,0x78,0x78,0x78,0x78,0x78,0x78,0xfc))
-FONT_B16[103] = (11, 7, (0x1ff,0x3de,0x39e,0x78e,0x78e,0x78e,0x39e,0x3fe,0xee,0x31e,0x39c,0x3f8))
-FONT_B16[104] = (12, 3, (0x7c0,0x3c0,0x3c0,0x3dc,0x3fe,0x3ce,0x3ce,0x3ce,0x3ce,0x3ce,0x3ce,0x7ff))
-FONT_B16[105] = (6, 3, (0x1c,0x1e,0x1c,0x0,0x3e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x3f,0x3f))
-FONT_B16[106] = (6, 3, (0xe,0xe,0xe,0x0,0x1e,0xe,0xe,0xe,0xe,0xe,0xe,0xe,0xe,0xe,0x6e,0x7c))
-FONT_B16[107] = (11, 3, (0x7c0,0x3c0,0x3c0,0x3cf,0x3cf,0x3dc,0x3f0,0x3f8,0x3fc,0x3de,0x3cf,0x7ff))
-FONT_B16[108] = (6, 3, (0x3e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x3f))
-FONT_B16[109] = (17, 7, (0x1ff7c,0xfffc,0xf39e,0xf39e,0xf39e,0xf39e,0xf39e,0x1ffff,0x1ffff))
-FONT_B16[110] = (12, 7, (0x7fc,0x3fe,0x3ce,0x3ce,0x3ce,0x3ce,0x3ce,0x7ff,0x7ff))
-FONT_B16[111] = (11, 7, (0xfe,0x1ef,0x1c7,0x3c7,0x3c7,0x1c7,0x1cf,0xfe,0x78))
-FONT_B16[112] = (11, 7, (0x7fc,0x3de,0x3cf,0x3cf,0x3cf,0x3cf,0x3ce,0x3fe,0x3f8,0x3c0,0x3c0,0x7e0))
-FONT_B16[113] = (11, 7, (0x1ff,0x3de,0x39e,0x78e,0x78e,0x78e,0x39e,0x3fe,0xee,0xe,0xe,0x3f))
-FONT_B16[114] = (8, 7, (0x1ff,0xff,0xf3,0xf0,0xf0,0xf0,0xf0,0x1f8,0x1f8))
-FONT_B16[115] = (9, 7, (0xfe,0xe6,0x1e2,0xfc,0xfe,0x3f,0x8f,0xfe,0x7c))
-FONT_B16[116] = (7, 4, (0x3c,0x3c,0x7f,0x7f,0x3c,0x3c,0x3c,0x3c,0x3d,0x3f,0x1f))
-FONT_B16[117] = (12, 7, (0x7de,0x3ce,0x3ce,0x3ce,0x3ce,0x3ce,0x3de,0x1ff,0xef))
-FONT_B16[118] = (9, 7, (0x3e7,0x1e2,0x1e6,0xe6,0xfc,0x7c,0x78,0x78,0x38))
-FONT_B16[119] = (14, 7, (0x7cef,0x3ce6,0x3de4,0x1dfc,0x1f7c,0x1f78,0xf78,0xe38,0xe30))
-FONT_B16[120] = (10, 7, (0x3ef,0x1ec,0xfc,0xf8,0x78,0xfc,0x1bc,0x3ff,0x3ff))
-FONT_B16[121] = (9, 7, (0x3e7,0x1e2,0x1e6,0xe6,0xfc,0x7c,0x78,0x38,0x38,0x30,0x1b0,0x1e0))
-FONT_B16[122] = (9, 7, (0xff,0x8f,0x9e,0x3c,0x78,0x78,0xf3,0x1ff,0x1ff))
-FONT_B16[123] = (10, 3, (0x1f,0x1c,0x1c,0x1c,0x1c,0x3c,0x3c,0xf8,0x3c,0x3c,0x1c,0x1c,0x1c,0x1c,0x1f))
-FONT_B16[124] = (6, 3, (0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3))
-FONT_B16[125] = (10, 3, (0xf8,0x3c,0x3c,0x1c,0x1c,0x1c,0x1c,0xf,0x1c,0x1c,0x1c,0x1c,0x3c,0x3c,0xf8))
-FONT_B16[126] = (13, 8, (0x1c0,0x3ff,0x7ff,0x61c))
-FONT_B16[8211] = (8, 10, (0x3f,0x3f))
-FONT_B16[8212] = (16, 10, (0x3fff,0x3fff))
-FONT_B16[183] = (6, 8, (0x7,0x7,0x7))
-FONT_B16[8226] = (10, 6, (0x1e,0x3f,0x3f,0x3f,0x1f,0xe))
-FONT_B16[8217] = (6, 4, (0x3,0x3,0x7,0x6,0x4))
-FONT_B16[8216] = (6, 4, (0x1,0x3,0x7,0x7,0x6))
-FONT_B16[8220] = (9, 4, (0x1b,0x3f,0x76,0x76,0x6e))
-FONT_B16[8221] = (9, 4, (0x3b,0x37,0x77,0x6e,0x44))
-FONT_B22 = {}
-FONT_B22_H = 26
-FONT_B22_BASE = 21
-FONT_B22[32] = (8, 0, ())
-FONT_B22[33] = (10, 5, (0x7,0x7,0x7,0x7,0x7,0x7,0x7,0x3,0x3,0x3,0x3,0x0,0x7,0x7,0x7,0x7))
-FONT_B22[34] = (11, 5, (0x73,0x73,0x73,0x73,0x73,0x73))
-FONT_B22[35] = (18, 5, (0x39c,0x39c,0x71c,0x738,0x7fff,0x7fff,0x7fff,0xe70,0xe70,0xfffe,0xfffe,0xfffe,0x1ce0,0x1ce0,0x1ce0,0x38e0))
-FONT_B22[36] = (15, 4, (0x20,0x20,0x20,0x1fe,0x7ff,0x7a7,0x723,0x7a3,0x7f0,0x7fe,0x1ff,0x7f,0x62f,0x627,0x727,0x7ff,0x3fe,0x20,0x20,0x20))
-FONT_B22[37] = (21, 4, (0x7e060,0xef0e0,0x1e70c0,0x1e71c0,0x1e7380,0x1e7300,0xef700,0xfe600,0x3cefc,0x1dee,0x19ce,0x39cf,0x31cf,0x71cf,0xe1ce,0xc0fe,0x1c078))
-FONT_B22[38] = (20, 4, (0x3fe0,0x7fe0,0x78e0,0xf860,0xf800,0x7c00,0x7e1f,0x1ff1f,0x3ff86,0x3cfcc,0x3c7ec,0x3c3fc,0x3c1f8,0x3e0fc,0x1f9fe,0xffff,0x3e1f))
-FONT_B22[39] = (7, 5, (0x3,0x3,0x3,0x3,0x3,0x3))
-FONT_B22[40] = (10, 4, (0x1,0x3,0x7,0xf,0x1e,0x1e,0x3e,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3e,0x1e,0x1e,0xf,0x7,0x3,0x1))
-FONT_B22[41] = (10, 4, (0xc0,0xf0,0x78,0x3c,0x3c,0x1e,0x1e,0x1e,0x1e,0x1f,0x1f,0x1e,0x1e,0x1e,0x1e,0x3c,0x3c,0x78,0xf0,0xc0))
-FONT_B22[42] = (12, 4, (0x30,0x232,0x337,0x7ff,0xfc,0xfc,0x7ff,0x3b7,0x232,0x30))
-FONT_B22[43] = (18, 7, (0xe0,0xe0,0xe0,0xe0,0xe0,0x3fff,0x3fff,0x3fff,0xe0,0xe0,0xe0,0xe0,0xe0,0xe0))
-FONT_B22[44] = (8, 17, (0x1e,0x1e,0x1e,0x1c,0x3c,0x78,0x30))
-FONT_B22[45] = (9, 13, (0x7f,0x7f,0x7f))
-FONT_B22[46] = (8, 17, (0x7,0x7,0x7,0x7))
-FONT_B22[47] = (8, 5, (0x7,0x7,0x7,0xe,0xe,0xe,0x1c,0x1c,0x1c,0x38,0x38,0x38,0x70,0x70,0x70,0xe0,0xe0,0xe0))
-FONT_B22[48] = (15, 4, (0x3f8,0x7fc,0xf1e,0xf1f,0x1f1f,0x1f0f,0x1f0f,0x1f0f,0x1f0f,0x1f0f,0x1f0f,0x1f0f,0x1f1f,0xf1f,0xfbe,0x7fc,0x1f0))
-FONT_B22[49] = (15, 4, (0xf8,0x1f8,0x7f8,0x678,0x78,0x78,0x78,0x78,0x78,0x78,0x78,0x78,0x78,0x3ff,0x3ff))
-FONT_B22[50] = (15, 4, (0xff8,0x1ffc,0x1c3e,0x183e,0x181f,0x1e,0x3e,0x3e,0x7c,0x78,0x1e0,0x3c3,0x703,0x1fff,0x1fff,0x1fff,0x1fff))
-FONT_B22[51] = (15, 4, (0xff8,0xffe,0xc3e,0xc1e,0x1e,0x3e,0x7e,0x1f8,0x1fe,0x3f,0x1f,0x1f,0x181f,0x1c1f,0x1e7e,0x1ffc,0x3f0))
-FONT_B22[52] = (15, 4, (0x7c,0xfc,0xfc,0x1fc,0x3fc,0x37c,0x77c,0x67c,0xc7c,0x1c7c,0x1fff,0x1fff,0x7c,0x7c,0x7c,0x1ff,0x1ff))
-FONT_B22[53] = (15, 5, (0x7ff,0x7ff,0x7ff,0x600,0x600,0x6f8,0x7fe,0x73f,0x1f,0xf,0xf,0x40f,0x60f,0x61f,0x7ff,0x7fc))
-FONT_B22[54] = (15, 4, (0x1ff,0x7ff,0x787,0xf03,0xf00,0x1f78,0x1ffe,0x1f9f,0x1f1f,0x1f0f,0x1f0f,0x1f0f,0xf0f,0xf1f,0x79e,0x3fe,0xf0))
-FONT_B22[55] = (15, 5, (0x1fff,0x1fff,0x1fff,0x1806,0x180e,0xc,0x1c,0x18,0x38,0x30,0x70,0x60,0xe0,0xc0,0x1c0,0x180))
-FONT_B22[56] = (15, 4, (0x3fc,0xffe,0xf1f,0x1f1f,0x1f1f,0xf1f,0xfbe,0x7fc,0xffe,0x1f1f,0x1f1f,0x1f0f,0x1f0f,0x1f1f,0xf9f,0xffe,0x1f0))
-FONT_B22[57] = (15, 4, (0x3f8,0xffc,0xf1e,0x1f1e,0x1f1f,0x1f1f,0x1f1f,0x1f1f,0x1f1f,0xfff,0x7ef,0x1f,0x1e,0xc1e,0xe7c,0xff8,0x7e0))
-FONT_B22[58] = (8, 10, (0xf,0xf,0xf,0xf,0x0,0x0,0x0,0xf,0xf,0xf,0xf))
-FONT_B22[59] = (8, 10, (0x1e,0x1e,0x1e,0x1e,0x0,0x0,0x0,0xe,0x1e,0x1e,0x1e,0x1c,0x3c,0x38,0x20))
-FONT_B22[60] = (18, 8, (0x3,0x1f,0xff,0x3fc,0x1ff0,0x3f80,0x3e00,0x3fc0,0xff8,0x1ff,0x3f,0xf,0x1))
-FONT_B22[61] = (18, 10, (0x3fff,0x3fff,0x3fff,0x0,0x0,0x3fff,0x3fff,0x3fff))
-FONT_B22[62] = (18, 8, (0x3800,0x3e00,0x3fc0,0xff8,0x1ff,0x3f,0x1f,0xff,0x7fc,0x1fe0,0x3f80,0x3c00,0x2000))
-FONT_B22[63] = (13, 4, (0x7fc,0x7fe,0x71f,0x61f,0x60f,0x1f,0x1f,0x3e,0x7c,0x70,0x60,0x60,0x60,0xf0,0x1f0,0xf0,0xe0))
-FONT_B22[64] = (22, 5, (0x3fe0,0xfff0,0x1e03c,0x3c00c,0x78006,0x71fe6,0x73fe3,0xe78e3,0xe70e3,0xe70e3,0xe70e6,0xe78e6,0xe3dfc,0x73ff8,0x70ee0,0x38000,0x1c010,0xf8f0,0x7fe0,0xf00))
-FONT_B22[65] = (17, 5, (0x780,0x780,0xfc0,0xfc0,0x1fc0,0x1be0,0x1be0,0x31f0,0x31f0,0x71f8,0x7ff8,0x7ff8,0xc07c,0xc07c,0x3e0ff,0x3e0ff))
-FONT_B22[66] = (19, 5, (0xfffc,0xfffe,0x3c3e,0x3c1f,0x3c1f,0x3c3e,0x3ffc,0x3ffc,0x3c7f,0x3c1f,0x3c1f,0x3c1f,0x3c1f,0x3c3f,0xffff,0xfffc))
-FONT_B22[67] = (18, 4, (0x7fc,0xfff,0x1f0f,0x3e07,0x7c03,0x7c03,0x7c00,0x7c00,0x7c00,0x7c00,0x7c00,0x7c03,0x3e03,0x3e07,0x1f9e,0xffc,0x1f0))
-FONT_B22[68] = (19, 5, (0x1fff0,0x1fffc,0x787e,0x783e,0x781f,0x781f,0x781f,0x781f,0x781f,0x781f,0x781f,0x781f,0x783e,0x787e,0x1fffc,0x1fff0))
-FONT_B22[69] = (17, 5, (0x7fff,0x7fff,0x1e03,0x1e03,0x1e18,0x1e18,0x1ff8,0x1ff8,0x1e18,0x1e18,0x1e00,0x1e00,0x1e03,0x1e03,0x7fff,0x7fff))
-FONT_B22[70] = (16, 5, (0x1fff,0x1fff,0x780,0x780,0x786,0x786,0x7fe,0x7fe,0x786,0x786,0x780,0x780,0x780,0x780,0x1ff0,0x1ff0))
-FONT_B22[71] = (19, 4, (0x1ff8,0x3ffe,0x7c1e,0xf80e,0x1f00e,0x1f006,0x1f000,0x1f000,0x1f000,0x1f07e,0x1f07e,0x1f01e,0xf81e,0xf81e,0x7e3e,0x3ffe,0x7e0))
-FONT_B22[72] = (21, 5, (0x7fdff,0x7fdff,0x1e07c,0x1e07c,0x1e07c,0x1e07c,0x1fffc,0x1fffc,0x1e07c,0x1e07c,0x1e07c,0x1e07c,0x1e07c,0x1e07c,0x7fdff,0x7fdff))
-FONT_B22[73] = (10, 5, (0xff,0xff,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0xff,0xff))
-FONT_B22[74] = (10, 5, (0x1ff,0x1ff,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0x7c,0xc7c,0xef8,0xff0,0x7c0))
-FONT_B22[75] = (19, 5, (0x3fe7f,0x3fe7f,0xf070,0xf0e0,0xf1c0,0xf380,0xff00,0xff80,0xffc0,0xf7e0,0xf3f0,0xf1f8,0xf0fc,0xf07e,0x3fe3f,0x3fe3f))
-FONT_B22[76] = (15, 5, (0x1ff0,0x1ff0,0x780,0x780,0x780,0x780,0x780,0x780,0x780,0x780,0x780,0x780,0x781,0x781,0x1fff,0x1fff))
-FONT_B22[77] = (24, 5, (0x3f807f,0x3fc07f,0xfc0fe,0xfc0fe,0xfe1fe,0xfe1be,0xdf3be,0xdf33e,0xcfb3e,0xcfe3e,0xc7e3e,0xc7c3e,0xc3c3e,0xc3c3e,0x3f00ff,0x3f00ff))
-FONT_B22[78] = (20, 5, (0x3f03f,0x3f83f,0xfc0c,0xfc0c,0xfe0c,0xff0c,0xdf8c,0xcfcc,0xcfec,0xc7fc,0xc3fc,0xc1fc,0xc0fc,0xc07c,0x3f03c,0x3f03c))
-FONT_B22[79] = (19, 4, (0x1ff0,0x3ffc,0xfc3e,0xf83e,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f81f,0xf83e,0x7c7c,0x3ff8,0x7c0))
-FONT_B22[80] = (17, 5, (0x3ffe,0x3fff,0xf1f,0xf0f,0xf0f,0xf0f,0xf0f,0xf3f,0xfff,0xff8,0xf00,0xf00,0xf00,0xf00,0x3fe0,0x3fe0))
-FONT_B22[81] = (19, 4, (0x1ff0,0x3ffc,0xfc3e,0xf83e,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f01f,0x1f81f,0xf83e,0x7c7c,0x3ff8,0x7c0,0xe0,0xfc,0x7c,0x1c))
-FONT_B22[82] = (18, 5, (0xfff8,0xfffc,0x3c3e,0x3c3e,0x3c3e,0x3c3e,0x3c3e,0x3ffc,0x3ff0,0x3cf8,0x3c7c,0x3c7c,0x3c3e,0x3c3f,0xff9f,0xff9f))
-FONT_B22[83] = (16, 4, (0x7fc,0x1ffe,0x1c0e,0x3c0e,0x3c06,0x3f00,0x3ff0,0x1ffc,0xffe,0x7ff,0x7f,0x301f,0x380f,0x380f,0x3e3e,0x3ffc,0x3f0))
-FONT_B22[84] = (16, 5, (0xffff,0xffff,0xc3e3,0xc3e3,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0xff8,0xff8))
-FONT_B22[85] = (19, 5, (0x1fe1f,0x1fe1f,0x7806,0x7806,0x7806,0x7806,0x7806,0x7806,0x7806,0x7806,0x7806,0x7806,0x7c0e,0x7e0c,0x3ffc,0x1ff0))
-FONT_B22[86] = (17, 5, (0x3fc1f,0x3fc1f,0xf80c,0xfc0c,0x7c1c,0x7c18,0x3e18,0x3e30,0x3f30,0x1f70,0x1f60,0xfe0,0xfc0,0x7c0,0x780,0x780))
-FONT_B22[87] = (25, 5, (0x1fe1e1f,0x1fe1f1f,0x7c1f06,0x7c3f0e,0x7c3f0c,0x3e3f8c,0x3e7f8c,0x3e6f98,0x1f67d8,0x1fe7d8,0x1fc7f0,0xfc3f0,0xfc3f0,0xf83e0,0x781e0,0x781e0))
-FONT_B22[88] = (17, 5, (0x1fe7e,0x1fe7e,0x7c38,0x3e30,0x3f70,0x1fe0,0xfc0,0xfc0,0x7e0,0x7e0,0xdf0,0x1df8,0x38fc,0x307c,0x1f8ff,0x1f8ff))
-FONT_B22[89] = (16, 5, (0xff0f,0xff0f,0x3e0e,0x3f0c,0x1f1c,0xf98,0xff0,0x7f0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0x3e0,0xff8,0xff8))
-FONT_B22[90] = (16, 5, (0x3fff,0x3fff,0x303f,0x307e,0x7c,0xfc,0x1f8,0x1f0,0x3e0,0x7e0,0xfc0,0xf80,0x1f81,0x3f01,0x3fff,0x3fff))
-FONT_B22[91] = (10, 4, (0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf,0xf))
-FONT_B22[92] = (8, 5, (0xe0,0xe0,0xe0,0x70,0x70,0x70,0x38,0x38,0x38,0x1c,0x1c,0x1c,0xe,0xe,0xe,0x7,0x7,0x7))
-FONT_B22[93] = (10, 4, (0xfe,0xfe,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0xfe,0xfe))
-FONT_B22[94] = (18, 5, (0x1e0,0x3f0,0x7f8,0xfbc,0x1e1e,0x3c07))
-FONT_B22[95] = (11, 24, (0x7ff,0x7ff))
-FONT_B22[96] = (11, 3, (0x70,0x38,0x1c,0xc))
-FONT_B22[97] = (14, 9, (0x7f8,0x7fc,0x63e,0x41e,0x1e,0x7fe,0xffe,0xf1e,0xf1e,0xfbe,0xfff,0x7df))
-FONT_B22[98] = (15, 4, (0x7e00,0x7e00,0x1e00,0x1e00,0x1ef0,0x1ffc,0x1f3e,0x1f1e,0x1e1f,0x1e1f,0x1e1f,0x1e1f,0x1e1f,0x1f1e,0x1f3e,0x7ffc,0x7ef0))
-FONT_B22[99] = (13, 9, (0xff,0x3ff,0x7c3,0x7c3,0x7c1,0x780,0x780,0x7c0,0x7c3,0x7c3,0x3ff,0xfe))
-FONT_B22[100] = (15, 4, (0x3e,0x3e,0x1e,0x1e,0x3de,0xffe,0xfbe,0x1f1e,0x1f1e,0x1e1e,0x1e1e,0x1e1e,0x1f1e,0x1f1e,0xfbe,0xfff,0x3df))
-FONT_B22[101] = (14, 9, (0x3f8,0x7fe,0xf9e,0xf9f,0xf0f,0xfff,0xfff,0xf00,0xf87,0xf87,0x7fe,0x3fc))
-FONT_B22[102] = (9, 4, (0x7f,0xff,0x1f3,0x1e0,0x1e0,0x7fc,0x7fc,0x1e0,0x1e0,0x1e0,0x1e0,0x1e0,0x1e0,0x1e0,0x1e0,0x3fc,0x3fc))
-FONT_B22[103] = (15, 9, (0x7ff,0xfff,0x1f1e,0x1f1e,0x1e1e,0x1e1e,0x1e1e,0x1e1e,0x1f1e,0x1f1e,0xffe,0x7fe,0x1e,0xc1e,0xe3e,0xffc,0x7e0))
-FONT_B22[104] = (16, 4, (0xfc00,0xfc00,0x3c00,0x3c00,0x3cf0,0x3df8,0x3ffc,0x3e3c,0x3e3c,0x3c3c,0x3c3c,0x3c3c,0x3c3c,0x3c3c,0x3c3c,0x7fff,0x7fff))
-FONT_B22[105] = (8, 4, (0x1e,0x1e,0x1e,0x1e,0x0,0x3e,0x3e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x3f,0x3f))
-FONT_B22[106] = (8, 4, (0x3c,0x3c,0x3c,0x3c,0x0,0xfc,0xfc,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x33c,0x3fc,0x3f8))
-FONT_B22[107] = (15, 4, (0x3e00,0x3e00,0x1e00,0x1e00,0x1e00,0x1e3f,0x1e3f,0x1e38,0x1e70,0x1ee0,0x1ff0,0x1ff8,0x1e7c,0x1e3e,0x1e1e,0x3fbf,0x3fbf))
-FONT_B22[108] = (8, 4, (0x3e,0x3e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x1e,0x3f,0x3f))
-FONT_B22[109] = (23, 9, (0x1f7c7c,0x1ffefe,0xfdfbe,0xf9f1e,0xf0f1e,0xf0f1e,0xf0f1e,0xf0f1e,0xf0f1e,0xf0f1e,0x1fffbf,0x1fffbf))
-FONT_B22[110] = (16, 9, (0x3efc,0x3ffc,0x1fbe,0x1f1e,0x1f1e,0x1e1e,0x1e1e,0x1e1e,0x1e1e,0x1e1e,0x3fff,0x3fff))
-FONT_B22[111] = (15, 9, (0x1fc,0x7fe,0xf8f,0xf8f,0xf0f,0xf0f,0xf0f,0xf0f,0xf8f,0xf8f,0x7fe,0x1fc))
-FONT_B22[112] = (15, 9, (0x7ff8,0x7ffc,0x1f3e,0x1e1e,0x1e1f,0x1e1f,0x1e1f,0x1e1f,0x1e1e,0x1f3e,0x1ffc,0x1ff8,0x1e00,0x1e00,0x1e00,0x7f80,0x7f80))
-FONT_B22[113] = (15, 9, (0x7ff,0xfff,0x1f1e,0x1f1e,0x1e1e,0x1e1e,0x1e1e,0x1e1e,0x1f1e,0x1f1e,0xffe,0x7fe,0x1e,0x1e,0x1e,0x7f,0x7f))
-FONT_B22[114] = (12, 9, (0xfdf,0xfff,0x3f3,0x3e3,0x3e0,0x3c0,0x3c0,0x3c0,0x3c0,0x3c0,0x7f0,0x7f0))
-FONT_B22[115] = (12, 9, (0x1ff,0x3ff,0x3c3,0x3c3,0x3f0,0x3fe,0x1ff,0x3f,0x30f,0x30f,0x3ff,0x3fe))
-FONT_B22[116] = (10, 6, (0xf0,0xf0,0xf0,0x3fe,0x3fe,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf3,0xf3,0xff,0x7e))
-FONT_B22[117] = (16, 9, (0xfcfc,0xfcfc,0x3c3c,0x3c3c,0x3c3c,0x3c3c,0x3c3c,0x3c7c,0x3c7c,0x3ffc,0x1fbe,0xf3e))
-FONT_B22[118] = (13, 9, (0x3f9f,0x3f9f,0x1f0c,0xf0c,0xf9c,0x798,0x7d8,0x7f0,0x3f0,0x3f0,0x1e0,0x1e0))
-FONT_B22[119] = (19, 9, (0xfe39f,0xfe79f,0x3c7ce,0x3c7cc,0x3efcc,0x1eff8,0x1eff8,0x1f9f8,0xf9f0,0xf9f0,0xf0f0,0x70e0))
-FONT_B22[120] = (13, 9, (0x1fdf,0x1fdf,0x7cc,0x7f8,0x3f0,0x1f0,0x1f8,0x3f8,0x77c,0x63e,0x1f7f,0x1f7f))
-FONT_B22[121] = (13, 9, (0x3f9f,0x3f9f,0xf0c,0xf8c,0xf9c,0x7d8,0x7d8,0x3f0,0x3f0,0x1e0,0x1e0,0xe0,0xc0,0x19c0,0x1f80,0x1f80))
-FONT_B22[122] = (12, 9, (0x3ff,0x3ff,0x31f,0x33f,0x3e,0x7c,0xf8,0x1f0,0x1f1,0x3e1,0x3ff,0x3ff))
-FONT_B22[123] = (14, 4, (0x3f,0x7f,0x7c,0x78,0x78,0x78,0x78,0x78,0xf8,0x3f8,0x3f0,0xf8,0x78,0x78,0x78,0x78,0x78,0x78,0x7c,0x3f,0x1f))
-FONT_B22[124] = (8, 4, (0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3))
-FONT_B22[125] = (14, 4, (0x3f0,0x3f8,0x78,0x78,0x78,0x78,0x78,0x78,0x7c,0x3f,0x3f,0x7c,0x78,0x78,0x78,0x78,0x78,0x78,0xf8,0x3f8,0x3e0))
-FONT_B22[126] = (18, 11, (0x701,0x1fe3,0x3fff,0x39ff,0x203c))
-FONT_B22[8211] = (11, 14, (0x1ff,0x1ff,0x1ff))
-FONT_B22[8212] = (22, 14, (0xfffff,0xfffff,0xfffff))
-FONT_B22[183] = (8, 11, (0x7,0x7,0x7,0x7))
-FONT_B22[8226] = (14, 9, (0x7e,0x7f,0xff,0xff,0xff,0xff,0x7e,0x3c))
-FONT_B22[8217] = (8, 5, (0x7,0x7,0xf,0xe,0x1e,0x1c,0x8))
-FONT_B22[8216] = (8, 4, (0x3,0x7,0xf,0xe,0x1e,0x1e,0x1e))
-FONT_B22[8220] = (13, 4, (0x63,0xe7,0x1ef,0x1ce,0x3de,0x3de,0x3de))
-FONT_B22[8221] = (13, 5, (0xe7,0xe7,0x1ef,0x1ce,0x3de,0x39c,0x108))
-FONT_B44 = {}
-FONT_B44_H = 52
-FONT_B44_BASE = 41
-FONT_B44[65] = (34, 9, (0x1fc000,0x1fc000,0x3fc000,0x3fe000,0x3fe000,0x7ff000,0x7ff000,0xfff000,0xfff800,0xeff800,0x1effc00,0x1c7fc00,0x3c7fc00,0x3c3fe00,0x383fe00,0x783ff00,0x701ff00,0xf01ff80,0xf00ff80,0xe00ff80,0x1fffffc0,0x1fffffc0,0x3fffffe0,0x3c003fe0,0x78003fe0,0x78003ff0,0x70001ff0,0xf0001ff8,0xf0000ff8,0x7fe007fff,0x7fe007fff,0x7fe007fff))
-FONT_B44[66] = (37, 9, (0x1ffffff00,0x1ffffffe0,0x1fffffff0,0x1ff01ff8,0x1ff00ff8,0x1ff007fc,0x1ff007fc,0x1ff007fc,0x1ff007fc,0x1ff007fc,0x1ff007fc,0x1ff00ff8,0x1ff03ff0,0x1fffffe0,0x1fffff00,0x1fffffe0,0x1ff07ff8,0x1ff00ffc,0x1ff007fe,0x1ff003fe,0x1ff003ff,0x1ff003ff,0x1ff003ff,0x1ff003ff,0x1ff003ff,0x1ff003ff,0x1ff007fe,0x1ff00ffe,0x1ff01ffc,0x1fffffff8,0x1fffffff0,0x1ffffff80))
-FONT_B44[67] = (35, 9, (0xfff80,0x7ffff0,0xfffffe,0x3ff01fe,0x7fc007e,0xff8003e,0x1ff0003e,0x1ff0001e,0x3fe0001e,0x3fe0000e,0x7fe0000e,0x7fe00000,0x7fe00000,0x7fc00000,0x7fc00000,0x7fc00000,0x7fc00000,0x7fc00000,0x7fc00000,0x7fc00000,0x7fe00000,0x7fe00000,0x7fe00000,0x3fe0001f,0x3fe0001f,0x1ff0003e,0x1ff0003e,0xff8007e,0x7fc00fc,0x3ff01f8,0xfffff0,0x7fffe0,0xfff00))
-FONT_B44[68] = (38, 9, (0x3fffff800,0x3ffffff00,0x3ffffffc0,0x3fe07ff0,0x3fe01ff8,0x3fe00ff8,0x3fe007fc,0x3fe007fe,0x3fe003fe,0x3fe003ff,0x3fe003ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe001ff,0x3fe003ff,0x3fe003ff,0x3fe003fe,0x3fe007fe,0x3fe007fc,0x3fe00ff8,0x3fe01ff8,0x3fe07ff0,0x3ffffffc0,0x3ffffff00,0x3fffff800))
-FONT_B44[69] = (34, 9, (0x1fffffff,0x1fffffff,0x1fffffff,0x1ff0007,0x1ff0007,0x1ff0007,0x1ff0007,0x1ff0000,0x1ff0000,0x1ff00e0,0x1ff00e0,0x1ff00e0,0x1ff00e0,0x1ffffe0,0x1ffffe0,0x1ffffe0,0x1ff00e0,0x1ff00e0,0x1ff00e0,0x1ff00e0,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0007,0x1ff0007,0x1ff0007,0x1ff0007,0x1fffffff,0x1fffffff,0x1fffffff))
-FONT_B44[70] = (31, 9, (0x7ffffff,0x7ffffff,0x7ffffff,0x7fc003,0x7fc003,0x7fc003,0x7fc003,0x7fc000,0x7fc000,0x7fc078,0x7fc078,0x7fc078,0x7fc078,0x7ffff8,0x7ffff8,0x7ffff8,0x7fc078,0x7fc078,0x7fc078,0x7fc078,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fffe00,0x7fffe00,0x7fffe00))
-FONT_B44[71] = (38, 9, (0x3fff00,0x1ffffe0,0x7fffffc,0xffc03fc,0x1ff000fc,0x3fe0007c,0x7fc0007c,0x7fc0003c,0xff80003c,0xff80001c,0x1ff80001c,0x1ff800000,0x1ff800000,0x1ff000000,0x1ff000000,0x1ff000000,0x1ff000000,0x1ff001ffe,0x1ff001ffe,0x1ff001ffe,0x1ff8001fe,0x1ff8001fe,0x1ff8001fe,0xff8001fe,0xff8001fe,0x7fc001fe,0x7fc001fe,0x3fe001fe,0x1ff001fe,0xffc07fe,0x7fffffc,0x1ffffe0,0x3fff00))
-FONT_B44[72] = (42, 9, (0x1ffff0ffff,0x1ffff0ffff,0x1ffff0ffff,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1fffffff8,0x1fffffff8,0x1fffffff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ff000ff8,0x1ffff0ffff,0x1ffff0ffff,0x1ffff0ffff))
-FONT_B44[73] = (21, 9, (0xffff,0xffff,0xffff,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xff8,0xffff,0xffff,0xffff))
-FONT_B44[74] = (21, 9, (0x7fffe,0x7fffe,0x7fffe,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0x3fe0,0xe03fc0,0xe03fc0,0xf07fc0,0xf8ff80,0xffff00,0xfffe00,0x3ff800))
-FONT_B44[75] = (38, 9, (0xffff83ffe,0xffff83ffe,0xffff83ffe,0xff800fc0,0xff801f80,0xff803e00,0xff807c00,0xff80f800,0xff81f000,0xff87e000,0xff8fc000,0xff9f0000,0xffbe0000,0xffff0000,0xffff8000,0xffffc000,0xffffe000,0xfffff000,0xffbff800,0xff9ffc00,0xff8ffe00,0xff87ff00,0xff83ff00,0xff83ff80,0xff81ffc0,0xff80ffe0,0xff807ff0,0xff803ff8,0xff801ffc,0xffff80fff,0xffff807ff,0xffff803ff))
-FONT_B44[76] = (31, 9, (0x7fffc00,0x7fffc00,0x7fffc00,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc000,0x7fc003,0x7fc003,0x7fc003,0x7fc003,0x7fc003,0x7ffffff,0x7ffffff,0x7ffffff))
-FONT_B44[77] = (49, 9, (0xfffc0001fff,0xfffc0003fff,0xfffe0003fff,0xffe0003ff8,0xffe0007ff8,0xfff0007ff8,0xfff000fff8,0xeff800eff8,0xeff801eff8,0xe7fc01eff8,0xe7fc03cff8,0xe7fe03cff8,0xe3fe038ff8,0xe3fe078ff8,0xe1ff070ff8,0xe1ff0f0ff8,0xe0ff8e0ff8,0xe0ff9e0ff8,0xe07fde0ff8,0xe07ffc0ff8,0xe07ffc0ff8,0xe03ff80ff8,0xe03ff80ff8,0xe01ff00ff8,0xe01ff00ff8,0xe00ff00ff8,0xe00fe00ff8,0xe00fe00ff8,0xe000000ff8,0xffe0000ffff,0xffe0000ffff,0xffe0000ffff))
-FONT_B44[78] = (40, 9, (0xffe0007ff,0xfff0007ff,0xfff8007ff,0xff800078,0xffc00078,0xffe00078,0xfff00078,0xfff80078,0xfffc0078,0xfffe0078,0xeffe0078,0xe7ff0078,0xe3ff8078,0xe1ffc078,0xe1ffe078,0xe0fff078,0xe07ff078,0xe03ff878,0xe01ffc78,0xe00ffe78,0xe007ff78,0xe007fff8,0xe003fff8,0xe001fff8,0xe000fff8,0xe0007ff8,0xe0003ff8,0xe0003ff8,0xe0001ff8,0xffe000ff8,0xffe0007f8,0xffe0003f8))
-FONT_B44[79] = (38, 9, (0x7ff800,0x3ffff00,0xfffffc0,0x1ff03fe0,0x3fe00ff0,0x7fc007f8,0xff8007fc,0xff8003fe,0x1ff0003fe,0x1ff0003ff,0x3ff0003ff,0x3ff0001ff,0x3ff0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3ff0001ff,0x3ff0001ff,0x3ff0003ff,0x1ff0003ff,0x1ff0003fe,0xff8003fe,0xff8007fc,0x7fc007f8,0x3fe00ff0,0x1ff03fe0,0xfffffc0,0x3ffff00,0x7ff800))
-FONT_B44[80] = (33, 9, (0x1fffffe0,0x1ffffff8,0x1ffffffc,0x1ff07fe,0x1ff03ff,0x1ff01ff,0x1ff01ff,0x1ff01ff,0x1ff00ff,0x1ff00ff,0x1ff00ff,0x1ff01ff,0x1ff01ff,0x1ff01ff,0x1ff03ff,0x1ff07fe,0x1fffffc,0x1fffff8,0x1ffffe0,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ff0000,0x1ffff800,0x1ffff800,0x1ffff800))
-FONT_B44[81] = (38, 9, (0x7ff800,0x3ffff00,0xfffffc0,0x1ff03fe0,0x3fe00ff0,0x7fc007f8,0xff8007fc,0xff8003fe,0x1ff0003fe,0x1ff0003ff,0x3ff0003ff,0x3ff0001ff,0x3ff0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3fe0001ff,0x3ff0001ff,0x3ff0001ff,0x3ff0003ff,0x1ff0003ff,0x1ff0003fe,0xff8003fe,0xff8007fc,0x7fc007f8,0x3fe00ff0,0x1ff03fe0,0xfffffc0,0x3ffff00,0x7ff800,0x1f000,0x1fe00,0xffe0,0x7fe0,0x3fe0,0x1fe0,0xfe0,0x1e0))
-FONT_B44[82] = (37, 9, (0x1fffffe00,0x1ffffffc0,0x1ffffffe0,0x1ff07ff0,0x1ff01ff0,0x1ff01ff8,0x1ff00ff8,0x1ff00ff8,0x1ff00ff8,0x1ff00ff8,0x1ff00ff8,0x1ff00ff8,0x1ff01ff0,0x1ff03ff0,0x1ff0ffc0,0x1fffff80,0x1ffffc00,0x1fffff00,0x1ff1ff80,0x1ff0ffc0,0x1ff07fc0,0x1ff07fe0,0x1ff03fe0,0x1ff03ff0,0x1ff01ff0,0x1ff01ff8,0x1ff00ff8,0x1ff007fc,0x1ff007fc,0x1ffff03ff,0x1ffff03ff,0x1ffff01ff))
-FONT_B44[83] = (32, 9, (0xfff80,0x3ffff8,0x7ffffc,0xfe01fc,0x1f8007c,0x3f8003c,0x3f8003c,0x3f8001c,0x3f8001c,0x3f80000,0x3fe0000,0x3ff8000,0x3fff800,0x3ffff80,0x3fffff0,0x1fffff8,0xfffffc,0x7ffffe,0x1fffff,0x7ffff,0x7fff,0x7ff,0x1ff,0x38000ff,0x3c0007f,0x3c0007f,0x3e0007f,0x3e0007f,0x3f000fe,0x3fc03fc,0x3fffff8,0x1fffff0,0x1fff80))
-FONT_B44[84] = (33, 9, (0xffffffff,0xffffffff,0xffffffff,0xf00ff807,0xf00ff807,0xf00ff807,0xf00ff807,0xf00ff807,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xffff80,0xffff80,0xffff80))
-FONT_B44[85] = (38, 9, (0xffff807ff,0xffff807ff,0xffff807ff,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800078,0xff800070,0x7f800070,0x7fc000f0,0x7fc000f0,0x7fc000f0,0x3fe001e0,0x3ff003e0,0x1ffe1fc0,0x1fffff80,0x7ffff00,0x1fffc00,0x3fe000))
-FONT_B44[86] = (34, 9, (0x7fff803ff,0x7fff803ff,0x7fff803ff,0xffc0003c,0x7fc00078,0x7fe00078,0x3fe00070,0x3ff000f0,0x3ff000e0,0x1ff001e0,0x1ff801e0,0xff801c0,0xffc03c0,0xffc0380,0x7fc0780,0x7fe0780,0x3fe0f00,0x3ff0f00,0x3ff0e00,0x1ff1e00,0x1ff9e00,0xffbc00,0xfffc00,0x7ff800,0x7ff800,0x7ff000,0x3ff000,0x3ff000,0x1fe000,0x1fe000,0x1fc000,0xfc000))
-FONT_B44[87] = (49, 9, (0x3fffc03fc03ff,0x3fffc03fc03ff,0x3fffc03fc03ff,0x7fe003fc0038,0x3fe007fe0078,0x3fe007fe0078,0x3fe007fe0070,0x3ff00fff00f0,0x1ff00fff00f0,0x1ff00fff00e0,0x1ff81fff80e0,0xff81eff81e0,0xff81cff81c0,0xffc3cffc1c0,0x7fc3c7fc3c0,0x7fc387fc380,0x7fe787fe380,0x3fe783fe780,0x3fe703fe780,0x3fe703fe700,0x3fff01fff00,0x1fff01fff00,0x1ffe01ffe00,0x1ffe01ffe00,0xffe00ffe00,0xffc00ffc00,0xffc00ffc00,0x7fc007fc00,0x7f8007f800,0x7f8007f800,0x3f8003f800,0x3f0003f000))
-FONT_B44[88] = (34, 9, (0x3fffc1ffe,0x3fffc1ffe,0x3fffc1ffe,0x7ff003c0,0x3ff007c0,0x1ff80780,0x1ffc0f00,0xffc1e00,0x7fe3e00,0x3ff3c00,0x3fff800,0x1fff800,0xfff000,0xffe000,0x7fe000,0x3ff000,0x3ff800,0x1ff800,0x3ffc00,0x7ffe00,0xfffe00,0xf3ff00,0x1e3ff80,0x3e1ff80,0x3c0ffc0,0x780ffe0,0xf807fe0,0xf003ff0,0x1e001ff8,0x1ffc0ffff,0x1ffc0ffff,0x1ffc0ffff))
-FONT_B44[89] = (31, 9, (0xffff01ff,0xffff01ff,0xffff01ff,0x1ff80078,0xff80078,0xffc00f0,0x7fe00f0,0x7fe01e0,0x3ff03c0,0x1ff03c0,0x1ff8780,0xffc780,0xffcf00,0x7fef00,0x7ffe00,0x3ffc00,0x1ffc00,0x1ff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xff800,0xffff80,0xffff80,0xffff80))
-FONT_B44[90] = (32, 9, (0x1fffffff,0x1fffffff,0x1fffffff,0x1e0007fe,0x1e000ffe,0x1e001ffc,0x1e003ff8,0x1e003ff8,0x7ff0,0xffe0,0xffc0,0x1ffc0,0x3ff80,0x7ff00,0x7ff00,0xffe00,0x1ffc00,0x3ff800,0x3ff800,0x7ff000,0xffe000,0xffe000,0x1ffc000,0x3ff8000,0x7ff0000,0x7ff000f,0xffe000f,0x1ffc000f,0x1ffc000f,0x3fffffff,0x3fffffff,0x3fffffff))
-FONT_B44[48] = (31, 9, (0x3ff00,0xfffe0,0x1ffff0,0x3f87f8,0x7f03fc,0xff01fc,0xff01fe,0x1fe01fe,0x1fe01ff,0x1fe01ff,0x3fe01ff,0x3fe01ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe00ff,0x3fe01ff,0x3fe01ff,0x1fe01ff,0x1fe01ff,0x1fe01fe,0xff01fe,0xff01fc,0x7f03fc,0x3f87f8,0x1ffff0,0xfffe0,0x3ff00))
-FONT_B44[49] = (31, 9, (0x1fe0,0x7fe0,0xffe0,0x3ffe0,0xfffe0,0xf9fe0,0xf1fe0,0xc1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x1fe0,0x7ffff,0x7ffff,0x7ffff))
-FONT_B44[50] = (31, 9, (0x1fff80,0xffffe0,0xfffff8,0xfc0ffc,0xf807fe,0xf003fe,0xf003fe,0xe003ff,0xe003ff,0x1ff,0x1ff,0x3ff,0x3fe,0x3fe,0x3fc,0x7fc,0x7f8,0xff0,0x1fe0,0x3f80,0x7f00,0x1fc00,0x3f800,0x7e00f,0x1fc00f,0x3f000f,0xfe000f,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff))
-FONT_B44[51] = (31, 9, (0xfffc0,0x7ffff0,0x7ffff8,0x7c0ffc,0x7807fe,0x7003fe,0x7003ff,0x7001ff,0x1ff,0x1ff,0x3fe,0x3fe,0x7fc,0x1ff8,0x1fff0,0x1ffe0,0x1fff8,0xffe,0x3ff,0x1ff,0x1ff,0x1ff,0xff,0xff,0xe000ff,0xe000ff,0xf001ff,0xf001ff,0xf803ff,0xfc07fe,0xfffffc,0xfffff0,0x1fffc0))
-FONT_B44[52] = (31, 9, (0x1ff0,0x3ff0,0x7ff0,0x7ff0,0xfff0,0x1fff0,0x1fff0,0x3fff0,0x3dff0,0x79ff0,0xf9ff0,0xf1ff0,0x1f1ff0,0x3e1ff0,0x3c1ff0,0x7c1ff0,0x781ff0,0xf01ff0,0x1f01ff0,0x1e01ff0,0x3e01ff0,0x3ffffff,0x3ffffff,0x3ffffff,0x1ff0,0x1ff0,0x1ff0,0x1ff0,0x1ff0,0x1ff0,0x3ffff,0x3ffff,0x3ffff))
-FONT_B44[53] = (31, 9, (0x3ffffc,0x3ffffc,0x3ffffc,0x3ffffc,0x3ffffc,0x3ffffc,0x380000,0x380000,0x380000,0x380000,0x387e00,0x3bffc0,0x3ffff0,0x3f1ff8,0x3c07fc,0x3803fe,0x3ff,0x1ff,0x1ff,0x1ff,0x1ff,0x1ff,0x1ff,0xe001ff,0xf001ff,0xf001ff,0xf003ff,0xf803fe,0xfc07fc,0xff1ff8,0xfffff0,0x1fffc0,0x1fe00))
-FONT_B44[54] = (31, 9, (0x7ff8,0x1ffff,0x7ffff,0xff03f,0x1fc01f,0x3fc00f,0x3f800f,0x7f8000,0x7f8000,0x7f0000,0xff0000,0xff3fe0,0xfffff8,0xfffffe,0xffe1fe,0xffc1ff,0xff80ff,0xff80ff,0xff80ff,0xff80ff,0xff80ff,0xff80ff,0xff80ff,0xff80ff,0xff80ff,0x7f80ff,0x7f80ff,0x3f80ff,0x3fc1ff,0x1fe1fe,0xffffc,0x3fff8,0xffe0))
-FONT_B44[55] = (31, 9, (0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xf0001f,0xf0003e,0xf0003e,0xf0007c,0xf0007c,0xf8,0xf8,0x1f0,0x1f0,0x3e0,0x3e0,0x7c0,0x7c0,0xf80,0xf80,0x1f00,0x1f00,0x3e00,0x3e00,0x7c00,0x7c00,0xf800,0xf800,0x1f000,0x1f000,0x3e000))
-FONT_B44[56] = (31, 9, (0x7ff80,0x1ffff0,0x7ffff8,0xff87fc,0xff03fe,0x1ff03fe,0x1ff01fe,0x1ff01fe,0x1ff01fe,0x1ff01fe,0x1ff03fe,0xff03fe,0xff83fc,0x7fc7f8,0x1ffff0,0xfffe0,0x3ffff8,0xff83fc,0xff01fe,0x1ff01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x1ff01ff,0x1ff01fe,0xff83fe,0x7ffffc,0x3ffff0,0x7ffc0))
-FONT_B44[57] = (31, 9, (0x7ff00,0x1fffc0,0x7fffe0,0xff87f8,0xff03f8,0x1ff03fc,0x1ff03fc,0x1fe01fe,0x3fe01fe,0x3fe01fe,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x3fe01ff,0x1ff03ff,0x1ff03ff,0xff03ff,0xff87ff,0x7fffff,0x3ffeff,0xff9ff,0x1fe,0x1fe,0x1fe,0x1fc,0xe003fc,0xf003f8,0xf007f8,0xfc0ff0,0xffffe0,0xffff80,0x1ffe00))
-FONT_B44[32] = (15, 0, ())
-FONT_B44[44] = (15, 34, (0x1f8,0x1f8,0x1f8,0x1f8,0x3f8,0x3f8,0x3f0,0x7f0,0x7e0,0xfe0,0x1fc0,0x1f80,0x1f00,0xc00))
-FONT_B44[46] = (15, 34, (0x7c,0xfe,0xff,0x1ff,0x1ff,0xff,0xfe,0x7c))
-FONT_B44[58] = (16, 20, (0x3e,0x7f,0xff,0xff,0xff,0xff,0xff,0x7e,0x0,0x0,0x0,0x0,0x0,0x0,0x3e,0x7f,0xff,0xff,0xff,0xff,0x7f,0x3e))
-FONT_B44[8212] = (44, 27, (0xffffffffff,0xffffffffff,0xffffffffff,0xffffffffff,0xffffffffff))
-FONT_B44[183] = (15, 22, (0x7c,0xfe,0xff,0x1ff,0x1ff,0xff,0xfe,0x7c))
+    outdir = os.environ.get("MAKEFUN_OUTPUT_DIR", "out")
+    os.makedirs(outdir, exist_ok=True)
+    data = build().png_bytes()
+    assert len(data) <= 1048576, "entry.png too big: %d" % len(data)
+    path = os.path.join(outdir, "entry.png")
+    with open(path, "wb") as f:
+        f.write(data)
+    print("wrote %s (%d bytes)" % (path, len(data)))
 
 
 if __name__ == "__main__":
