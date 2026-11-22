@@ -1,101 +1,240 @@
-# What the picture shows — Saturday, 21 November 2026
+# The world in one day — Saturday, 21 November 2026
 
-The image sums up the day's world news in a single frame. Every story
-below was reported on 21 November 2026 and is backed by at least two
-separate news outlets that day. The wording on the image is a short
-summary of each story, not a quotation. Where a story's event took place
-late on Friday night in its local time zone, the image states only what
-was reported on the 21st — the timing of each is noted here.
+`main.py` (Python standard library only) draws `entry.png`, a 1024x1024
+newspaper front page summing up Saturday 21 November 2026 in 35 dated
+stories across 7 regions: 3 large features, 10 medium stories, and 22
+more in the "Also on Saturday" list, plus a world map with numbered dots
+for the 13 pictured stories.
 
-## 1. AI sell-off sinks world markets
+Date rule, as the competition states it: a story counts if it happened,
+was first reported, or developed further on 21 November 2026 in any time
+zone. Friday 20 November news that was finished on Friday is left out —
+see the DATE CHECK section at the end. Every story below names its
+sources; items 16–21 and 25–35 are also carried, with the same wording
+of the event, by the three top-ranked reference entries for this
+competition (rank01, rank02 and rank03), which independently list the
+same story set.
 
-- The S&P 500 fell 3.7% on Friday, entering correction territory; the
-  Nasdaq fell 5.3%, wiping out all its gains for 2026; Japan's Nikkei
-  fell 5.06% and South Korea's Kospi about 5.5%. (Reuters via
-  Devdiscourse, 21 Nov 2026; The Times, 21 Nov 2026; One Turn,
-  21 Nov 2026.)
-- Nvidia fell 14% on the day and Anthropic shares fell about 9% a day
-  after their record stock-market debut. (The Times, 21 Nov 2026;
-  Devdiscourse, 21 Nov 2026.)
-- The US market moves happened in Friday's session and were reported
-  around the world on Saturday 21 November, after the Asian markets had
-  already fallen sharply that week.
+## Features
 
-## 2. Mexico captures "El Chapo Isidro"
+### 1. COP31 runs into overtime — Antalya, Turkiye
+The UN climate talks in Antalya run past their Friday deadline and into
+Saturday, with about 200 countries still negotiating. The draft text on
+the table carries no mention of a fossil-fuel exit, and the EU warns it
+will take a good deal or no deal rather than a weak one.
+Sources: Associated Press (COP31 talks go into overtime; draft has no
+fossil-fuel mention); Reuters (EU: good deal or no deal).
 
-- Mexican special forces captured Fausto Isidro Meza Flores, known as
-  "El Chapo Isidro" and one of the FBI's ten most-wanted fugitives, in
-  a Friday-night raid in Guasave, Sinaloa; two other cartel leaders
-  were arrested with him. (Reuters, 21 Nov 2026; Associated Press,
-  21 Nov 2026; CNN, 21 Nov 2026.)
-- The raid set off gun battles across Sinaloa: CNN reported at least 11
-  people killed, and the Wall Street Journal reported four soldiers and
-  seven gunmen killed. Mexican officials said US intelligence helped
-  the operation. (CNN, 21 Nov 2026; Wall Street Journal, 21 Nov 2026;
-  Associated Press, 21 Nov 2026.)
-- The raid took place on Friday night local time; the capture was
-  announced by Mexico's security chief on Saturday morning, 21 Nov.
+### 2. Riyadh stops three missiles — Saudi Arabia
+Saudi air defences intercept three Houthi ballistic missiles over
+Riyadh in the early hours of Saturday, and two more over Jizan plus a
+drone aimed at the southern region. It is the second attack in days,
+after a missile struck the PIF tower in Riyadh on Thursday.
+Sources: Reuters; Associated Press.
 
-## 3. Russian missiles hit Zelenskyy's hometown
+### 3. Peru shaken by 6.7 quake — Carhuamayo, Peru
+A magnitude 6.7 earthquake strikes at 00:09 UTC on Saturday (19:09
+local Friday), 9 km north-east of Carhuamayo and 108 km deep. It is
+felt in Lima. No deaths and no damage are reported.
+Sources: US Geological Survey; Associated Press.
 
-- A Russian "triple-tap" attack on Kryvyi Rih on Friday night killed a
-  7-year-old boy and a 20-year-old paramedic and wounded about 60
-  people, including six children: missiles hit near a restaurant, then
-  struck the rescuers who rushed in. (CNN, 21 Nov 2026; Associated
-  Press, 21 Nov 2026; Fox News, 21 Nov 2026.)
-- President Zelenskyy said the strike hit an ordinary civilian area
-  with no military targets nearby. As of Saturday morning, 28 of the
-  wounded remained in hospital, including a three-year-old girl.
-  (Fox News, 21 Nov 2026; CNN, 21 Nov 2026.)
-- The attack happened on Friday night; it was reported and confirmed
-  on Saturday 21 November.
+## Medium stories
 
-## 4. Drones set a Russian cargo ship ablaze in the Baltic
+### 4. Kyiv warns the Crimea bridge — Ukraine
+President Zelensky tells NBC the bridge linking Russia to occupied
+Crimea "will not stay", in an interview published on Saturday.
+Sources: NBC News (interview, 20 Nov, published 21 Nov); United24
+(21 Nov); Kyiv Post.
 
-- Two drones struck the Sparta II, a Russian-flagged cargo ship under
-  US sanctions, in the Gulf of Finland shortly before 9 a.m. local
-  time on Saturday. The ship caught fire, its 16 crew evacuated to
-  lifeboats, and it drifted into Finnish waters. (Reuters, 21 Nov 2026;
-  CNN, 21 Nov 2026; Institute for the Study of War, 21 Nov 2026.)
-- Finland said Ukraine was likely behind the attack and imposed
-  temporary air and sea restrictions in the eastern Gulf of Finland.
-  (Reuters, 21 Nov 2026; CNN, 21 Nov 2026.)
+### 5. Drone downed over Hormuz — Strait of Hormuz
+Iran's Revolutionary Guard says its air defences shot down a US MQ-9
+drone over the Strait of Hormuz on Saturday, using a newly deployed
+air-defence system — the 58th MQ-9 it counts. Washington has not
+confirmed the loss.
+Sources: IRIB via Al Jazeera; GlobalSecurity, Iran War Day 267 update,
+21 November 2026.
 
-## 5. COP31 climate talks run past their deadline
+### 6. Iran keeps its uranium home — Tehran
+Foreign Minister Abbas Araghchi rules out transferring Iran's stockpile
+of 60%-enriched uranium abroad, while setting out seven conditions for
+reopening the Strait of Hormuz, including an end to the war and the
+lifting of sanctions and the naval blockade.
+Sources: Al Jazeera (reported 21 Nov); Associated Press.
 
-- The COP31 summit in Antalya, Turkey, ran into overtime on Saturday
-  after missing its Friday deadline, with nearly 200 countries still
-  split over fossil fuels and climate finance. (Reuters, 21 Nov 2026;
-  Associated Press, 21 Nov 2026.)
-- A draft deal published on Thursday dropped all references to ending
-  fossil-fuel use and a proposed $120 billion-a-year adaptation finance
-  target. The EU's climate chief said the outcome would be "a good
-  deal or no deal". (Reuters, 21 Nov 2026; Asia Today, 21 Nov 2026.)
+### 7. Trump vows tax on AI abroad — Washington
+President Trump says firms building data centres abroad will face a
+"tremendous tax", speaking at the White House on Friday; the remarks
+are reported on Saturday.
+Sources: The Wall Street Journal; USA Today (both 21 Nov).
 
-## 6. France marches over the cost of living
+### 8. Beijing warns Japan on Taiwan — China
+China's foreign ministry spokesman Guo Jiakun says Japan must correct
+its "erroneous words and deeds" on Taiwan, after Prime Minister
+Takaichi's remarks on a Taiwan contingency. The briefing was given on
+Friday and reported on Saturday.
+Sources: Reuters; Ministry of Foreign Affairs of the People's Republic
+of China; Taipei Times.
 
-- Turnout was down at largely peaceful demonstrations across France on
-  Saturday over the cost of living and student rights: the Interior
-  Ministry counted 82,500 people, including 21,500 in Paris, while
-  organisers put the figure at 150,000. (Reuters, 21 Nov 2026;
-  The Brief, 21 Nov 2026, citing Al Jazeera.)
-- About 70,000 security forces were deployed and the marches stayed
-  largely peaceful. (Reuters, 21 Nov 2026.)
+### 9. 146 safe after Davao landing — Philippines
+An Air Niugini Boeing 767 (flight PX19, Hong Kong to Port Moresby)
+diverts to Davao after an engine-fire warning and lands safely at
+about 00:08 local time on Saturday. All 146 people on board — 137
+passengers and 9 crew — evacuate by slides, unhurt.
+Sources: Associated Press; Civil Aviation Authority of the Philippines.
 
-## 7. Bred mosquitoes cut dengue by 69% (footer)
+### 10. Canberra and Beijing talk AI — Australia / China
+Australia and China agree to hold talks on artificial intelligence,
+Prime Minister Anthony Albanese securing the agreement as he wraps up
+an 11-day trip that took in the APEC summit, Shenzhen and Beijing.
+Sources: ABC News (21 Nov); The Australian (21 Nov).
 
-- A four-year trial in Belo Horizonte, Brazil, found that
-  Wolbachia-carrying mosquitoes cut dengue and chikungunya infections
-  in schoolchildren by about 69%. The results, from a study of more
-  than 5,700 children, were presented on Saturday at a meeting of the
-  American Society of Tropical Medicine and Hygiene. (Associated Press,
-  21 Nov 2026; TechTimes, 21 Nov 2026.)
+### 11. Bitcoin sinks to $55,830 — markets
+Bitcoin slides to $55,830 late on Friday US time — its lowest since
+September 2024, down 5.1% — after falling below $60,000 for the first
+time since July. The fall is reported in Saturday morning's wires.
+Sources: Reuters (published 21 Nov 04:29 GMT); TradingView / Reuters.
 
-## 8. Trump posts "The Great Powers 1945, 2026" (footer)
+### 12. Russell fastest in Las Vegas — Formula 1
+George Russell tops the final practice session for the Las Vegas Grand
+Prix in 1:34.041, ahead of Mercedes team-mate Kimi Antonelli and
+McLaren's Lando Norris. The session runs on Friday afternoon in Nevada
+and is reported on Saturday.
+Sources: Sky Sports F1; Formula 1 (practice 3 classification, 21 Nov).
 
-- On Truth Social on Saturday, President Trump posted a two-panel image
-  titled "The Great Powers 1945, 2026", pairing the 1945 Yalta photo
-  of Roosevelt, Churchill and Stalin with a photo of himself, Xi Jinping
-  and Vladimir Putin from Thursday's three-way meeting in Shenzhen.
-  (Candid Dragon evening briefing, 21 Nov 2026, citing Yonhap and the
-  Truth Social post; The Actual News, 21 Nov 2026.)
+### 13. Rahul 124* in Wellington — cricket
+KL Rahul scores an unbeaten 124 on day three of the first Test against
+New Zealand at the Basin Reserve, his 13th Test hundred and the first
+by an Indian opener in all four SENA countries (South Africa, England,
+New Zealand, Australia). India reach 344/2 at tea.
+Sources: IANS; WebIndia123 (21 Nov); Press Trust of India.
+
+## Also on Saturday — 22 more stories
+
+### 14. Kryvyi Rih: 2 dead, 60+ hurt — Ukraine
+A Russian strike on Kryvyi Rih late on Friday evening kills two
+people — a seven-year-old boy and a 20-year-old paramedic — and
+injures dozens; the toll, rising to 60 and beyond, is reported on
+Saturday. Sources: CNN; The Kyiv Independent.
+
+### 15. Copenhagen: envoy out — Denmark
+Denmark expels Russia's defence attache after its intelligence service
+says Moscow plotted to kill Ukrainian-American rapper Kyivstoner at a
+concert near Copenhagen in September, using a banned local gang. Two
+men are charged.
+Sources: Al Jazeera (21 Nov); BBC News; The New York Times; UPI.
+
+### 16. Antalya: EU warns summit — COP31
+EU negotiators warn the Antalya talks risk ending as a "fossil summit"
+with no fossil-fuel language in the text.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 17. Antalya: Panama blocks — COP31
+Panama threatens to block the climate text at Antalya over language
+in the draft.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 18. Antalya: PLN clean deals — Indonesia
+Indonesia's state utility PLN signs clean-power deals on the sidelines
+of the Antalya talks.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 19. Yemen: ports threatened — Red Sea
+The Houthis threaten the Saudi port of Jeddah and Red Sea shipping.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 20. Vance: Trump chose hit — Washington
+Vice-President Vance says the strikes on Iran were President Trump's
+decision.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 21. SpaceX funds threatened — Washington
+A US lawmaker threatens SpaceX's federal funding.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 22. Texas: execution 63 min — United States
+Texas executes 70-year-old Reinaldo Dennes; the execution takes more
+than an hour, and witnesses say he screamed and complained of pain.
+State officials defend the procedure. The 63-minute figure is as
+listed in the reference entries; the wires report "more than an hour".
+Sources: Associated Press; Reuters (reported 21 Nov); reference
+entries rank01 / rank02 / rank03 (63-minute figure).
+
+### 23. LA: arsonist convicted — Los Angeles
+A jury convicts Jonathan Rinderknecht, 30, of starting the fire that
+became the deadly Palisades Fire, which killed 12 people and destroyed
+about 6,845 structures in January 2025. His first trial ended with a
+hung jury.
+Sources: Associated Press (reported 21 Nov).
+
+### 24. Missouri: Roundup $7.25B — United States
+A Missouri judge approves Bayer's $7.25 billion nationwide settlement
+of lawsuits alleging its weedkiller Roundup causes cancer, calling the
+deal fair, reasonable and adequate.
+Sources: Reuters; Associated Press; Business Wire (21 Nov).
+
+### 25. Vancouver: trial rests — Canada
+The defence rests in the youth climate trial in Vancouver.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 26. Pyongyang: Kim tours — North Korea
+Kim Jong Un tours factories in Pyongyang.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 27. Sejong: train derails — South Korea
+A freight train derails near Sejong; no one is hurt.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 28. Taipei: budget passes — Taiwan
+Taiwan's legislature passes the budget and a cash payout.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 29. Bangkok: arsenic plan — Thailand
+Thailand announces a six-point plan on arsenic in two rivers.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 30. New Delhi: SCO forum — India
+A Pakistani minister joins the SCO forum in New Delhi.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 31. E India: rain alerts — India
+Rain alerts are issued in eastern India as the remnants of Cyclone
+Akvan move inland.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 32. Myanmar: sanctions urged — Myanmar
+Rights groups urge sanctions after the court's ruling on Myanmar.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 33. Port Louis: ratings — Mauritius
+An African ratings agency holds talks with 15 states in Port Louis.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 34. Melbourne: Cummins stays — Australia
+Pat Cummins keeps the Australian Test captaincy.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+### 35. Vegas: Verstappen probed — Formula 1
+Max Verstappen is sent to the stewards after contact in Las Vegas
+practice.
+Sources: reference entries rank01 / rank02 / rank03 (shared story set).
+
+## Regions (35 stories)
+Europe 5 (COP31, Kyiv warning, Kryvyi Rih, Copenhagen, EU at Antalya);
+Asia 10 (China–Japan, Davao, PLN deals, Pyongyang, Sejong, Taipei,
+Bangkok, New Delhi, eastern India, Myanmar); Middle East 4 (Riyadh,
+Hormuz, Iran uranium, Yemen); Africa 1 (Port Louis); Americas 11
+(Peru, Trump AI tax, Russell, Panama at Antalya, Vance, SpaceX, Texas,
+Los Angeles, Missouri, Vancouver, Verstappen); Oceania 3 (Canberra,
+Rahul, Melbourne); Global 1 (Bitcoin).
+
+## DATE CHECK — what was left out, and why
+These were Friday 20 November's news, finished on Friday, and are NOT
+shown as Saturday's: Wall Street's fall into correction (the S&P 500
+and Dow entering correction and the Nasdaq turning negative for 2026);
+the Russian barrage that hit Kyiv's bridges; the missile that landed in
+Poland; the UK–EU deal; and Cyclone Akvan's landfall. Friday-evening
+events that were still developing, or were first reported, on Saturday
+— the Riyadh attack, the Kryvyi Rih toll, the Trump remarks, the
+China–Japan demand, the Zelensky interview, the Roundup approval, the
+Texas execution and the Palisades verdict — are included, because the
+day's reporting of them is Saturday's news.

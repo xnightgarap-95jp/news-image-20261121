@@ -5,10 +5,10 @@
 # The world in one day — Saturday, 21 November 2026
 
 A newspaper front page drawn in pure Python (standard library only) that
-sums up 21 November 2026: the AI stock sell-off, Mexico's capture of
-"El Chapo Isidro", the Russian strike on Kryvyi Rih, drones hitting the
-cargo ship Sparta II in the Baltic, COP31 running into overtime, and
-protests across France — plus two smaller stories in the footer.
+sums up 21 November 2026 in 35 dated stories across 7 regions: COP31
+running into overtime, Riyadh intercepting three missiles, a 6.7 quake in
+Peru, and 32 more — plus a date check that leaves out Friday 20 November
+news.
 
 `main.py` draws `entry.png` (1024×1024) with no network and no third-party
 code; run it with `MAKEFUN_OUTPUT_DIR=out python3 main.py`. `NEWS.md`
